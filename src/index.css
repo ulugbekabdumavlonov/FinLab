@@ -1,0 +1,28 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+.input {
+  width: 100%;
+  padding: 12px;
+  border-radius: 10px;
+  border: 1px solid #e5e7eb;
+  background: #f9fafb;
+  outline: none;
+}
+
+.input:focus {
+  border-color: #14b8a6;
+  background: white;
+}
+:root {
+  --color-background-primary: #ffffff;
+  --color-background-secondary: #f8f9fb;
+  --color-background-tertiary: #f3f4f6;
+
+  --color-text-primary: #111827;
+  --color-text-secondary: #6b7280;
+  --color-text-tertiary: #9ca3af;
+
+  --color-border-secondary: #e5e7eb;
+  --color-border-tertiary: #f1f5f9;
+}
