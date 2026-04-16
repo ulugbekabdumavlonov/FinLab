@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { motion, useScroll, useTransform } from "framer-motion";
 
 const cardStyle = {
@@ -97,7 +97,7 @@ export default function Hero() {
 
   return (
     <div
-      className="relative min-h-screen overflow-hidden text-white flex items-center px-14"
+      className="relative min-h-screen overflow-hidden text-white flex flex-col md:flex-row items-center px-6 md:px-14 pt-24 md:pt-0 pb-12 md:pb-0"
       style={{
         background: "linear-gradient(135deg, #f97316 0%, #a855f7 38%, #6366f1 65%, #1e1b4b 100%)",
       }}
@@ -114,7 +114,7 @@ export default function Hero() {
 
       {/* LEFT */}
       <motion.div
-        className="relative z-10 flex-none w-full max-w-[600px]"
+        className="relative z-10 w-full md:flex-none md:max-w-[600px] text-center md:text-left"
         initial={{ opacity: 0, x: -40 }}
         animate={{ opacity: 1, x: 0 }}
         transition={{ duration: 0.8, ease: "easeOut" }}
@@ -129,7 +129,7 @@ export default function Hero() {
         <div className="mb-4">
           <motion.h1
             key={idx}
-            className="text-5xl font-bold leading-[1.1]"
+            className="text-3xl sm:text-4xl md:text-5xl font-bold leading-[1.1]"
             initial={{ opacity: 0, y: 14 }}
             animate={{ opacity: visible ? 1 : 0, y: visible ? 0 : -10 }}
             transition={{ duration: 0.4, ease: "easeOut" }}
@@ -150,7 +150,7 @@ export default function Hero() {
         </motion.p>
 
         <motion.button
-          className="mt-6 flex items-center gap-2 bg-white text-indigo-700 font-bold text-sm px-5 py-3 rounded-xl shadow-lg"
+          className="mt-6 inline-flex items-center gap-2 bg-white text-indigo-700 font-bold text-sm px-5 py-3 rounded-xl shadow-lg"
           whileHover={{ scale: 1.04 }}
           whileTap={{ scale: 0.97 }}
         >
@@ -159,147 +159,151 @@ export default function Hero() {
         <p className="mt-2 text-xs" style={{ color: "rgba(255,255,255,0.4)" }}>50+ отчётов · бесплатно 14 дней</p>
       </motion.div>
 
-      {/* CARDS */}
-      <div className="relative flex-1 ml-6" style={{ minHeight: 440 }}>
+      {/* CARDS — на мобильных показываем только главную карточку ДДС */}
+      <div className="relative w-full md:flex-1 md:ml-6 mt-10 md:mt-0" style={{ minHeight: 300 }}>
 
-        {/* P&L */}
-        <motion.div
-          className="absolute rounded-2xl p-4"
-          style={{ ...cardStyle, top: 0, left: 0, width: 200, rotate: -1, y: y1 }}
-          initial={{ opacity: 0, y: 30 }}
-          animate={{ opacity: 1, y: [0, -10, 0] }}
-          transition={{
-            opacity: { duration: 0.6, delay: 0.3 },
-            y: { duration: 6, delay: 0.9, repeat: Infinity, ease: "easeInOut" },
-          }}
-        >
-          <p className="text-xs uppercase tracking-wider mb-1" style={{ color: "rgba(255,255,255,0.5)" }}>P&L</p>
-          <p className="text-xl font-bold text-green-400">+$24,200</p>
-          <p className="text-xs" style={{ color: "rgba(255,255,255,0.4)" }}>Прибыль за месяц</p>
-          <span className="inline-block mt-1.5 text-xs px-2 py-0.5 rounded-full text-green-400" style={{ background: "rgba(74,222,128,0.18)" }}>
-            ↑ 18% к прошлому
-          </span>
-          <BarChart />
-        </motion.div>
-
-        {/* ДДС — main */}
-        <motion.div
-        className="absolute rounded-2xl p-5 z-30"
-        style={{ ...cardStyle, top: 30, left: 170, width: 300, y: y2 }}
-        initial={{ opacity: 0, y: 30 }}
-        animate={{ opacity: 1, y: [0, -10, 0] }}
-        transition={{
-          opacity: { duration: 0.6, delay: 0.3 },
-          y: { duration: 6, delay: 0.9, repeat: Infinity, ease: "easeInOut" },
-        }}
-      >
-        {/* Header */}
-         <div className="flex justify-between items-center mb-3">
-         <p className="text-sm text-white/60">ДДС</p>
-         <span className="text-xs text-green-400 bg-green-400/10 px-2 py-0.5 rounded-full">
-          +12%
-         </span>
-         </div>
-
-        {/* Main value */}
-         <p className="text-2xl font-bold text-indigo-300">$12,430</p>
-         <p className="text-xs text-white/50 mb-3">Остаток на счетах</p>
-
-        {/* Flow */}
-        <div className="space-y-2">
-        <ProgressRow
-        label="Поступления"
-        amount="+$38,400"
-        value={78}
-        color="linear-gradient(90deg,#818cf8,#a5b4fc)"
-        delay={0.6}
-      />
-        <ProgressRow
-        label="Расходы"
-        amount="−$25,970"
-        value={53}
-        color="linear-gradient(90deg,#f87171,#fb923c)"
-        delay={0.8}
-      />
-      </div>
-
-        {/* Net */}
-      <div className="flex justify-between mt-3 pt-3 border-t border-white/10">
-      <span className="text-xs text-white/50">Чистый поток</span>
-      <span className="text-sm font-semibold text-green-400">
-       +$12,430
-      </span>
-      </div>
-
-      {/* Mini chart */}
-      <div className="mt-3 flex items-end gap-1 h-10">
-       {[20, 35, 28, 45, 38, 55].map((h, i) => (
-      <div
-        key={i}
-        style={{ height: h, width: 6 }}
-        className="bg-indigo-400/70 rounded"
-       />
-        ))}
+        {/* На мобильном — только ДДС карточка по центру */}
+        <div className="md:hidden flex justify-center">
+          <motion.div
+            className="rounded-2xl p-5 w-[280px]"
+            style={cardStyle}
+            initial={{ opacity: 0, y: 30 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, delay: 0.3 }}
+          >
+            <div className="flex justify-between items-center mb-3">
+              <p className="text-sm text-white/60">ДДС</p>
+              <span className="text-xs text-green-400 bg-green-400/10 px-2 py-0.5 rounded-full">+12%</span>
+            </div>
+            <p className="text-2xl font-bold text-indigo-300">$12,430</p>
+            <p className="text-xs text-white/50 mb-3">Остаток на счетах</p>
+            <div className="space-y-2">
+              <ProgressRow label="Поступления" amount="+$38,400" value={78}
+                color="linear-gradient(90deg,#818cf8,#a5b4fc)" delay={0.6} />
+              <ProgressRow label="Расходы" amount="−$25,970" value={53}
+                color="linear-gradient(90deg,#f87171,#fb923c)" delay={0.8} />
+            </div>
+            <div className="flex justify-between mt-3 pt-3 border-t border-white/10">
+              <span className="text-xs text-white/50">Чистый поток</span>
+              <span className="text-sm font-semibold text-green-400">+$12,430</span>
+            </div>
+          </motion.div>
         </div>
-        </motion.div>
 
-        {/* Баланс */}
-        <motion.div
-          className="absolute rounded-2xl p-4 z-40"
-          style={{ ...cardStyle, bottom: 20, left: 155, width: 195, rotate: -0.5, y: y3 }}
-          initial={{ opacity: 0, y: 30 }}
-          animate={{ opacity: 1, y: [0, -8, 0] }}
-          transition={{
-            opacity: { duration: 0.6, delay: 0.7 },
-            y: { duration: 5.5, delay: 1.3, repeat: Infinity, ease: "easeInOut" },
-          }}
-        >
-          <p className="text-xs uppercase tracking-wider mb-1" style={{ color: "rgba(255,255,255,0.5)" }}>Баланс</p>
-          <p className="text-xl font-bold text-indigo-100">$84,320</p>
-          <p className="text-xs" style={{ color: "rgba(255,255,255,0.4)" }}>Чистые активы</p>
-          <div className="flex h-1.5 rounded-full overflow-hidden mt-2.5">
-            <motion.div className="flex-[2]"
-              style={{ background: "linear-gradient(90deg,#818cf8,#a5b4fc)" }}
-              initial={{ scaleX: 0 }} animate={{ scaleX: 1 }}
-              transition={{ delay: 1.5, duration: 0.8 }} />
-            <div className="flex-1" style={{ background: "rgba(248,113,113,0.6)" }} />
-          </div>
-          <div className="flex justify-between text-xs mt-1.5" style={{ color: "rgba(255,255,255,0.4)" }}>
-            <span>Активы 67%</span>
-            <span className="text-red-400">Пассивы 33%</span>
-          </div>
-        </motion.div>
+        {/* На десктопе — все 4 карточки */}
+        <div className="hidden md:block" style={{ minHeight: 440 }}>
+          {/* P&L */}
+          <motion.div
+            className="absolute rounded-2xl p-4"
+            style={{ ...cardStyle, top: 0, left: 0, width: 200, rotate: -1, y: y1 }}
+            initial={{ opacity: 0, y: 30 }}
+            animate={{ opacity: 1, y: [0, -10, 0] }}
+            transition={{
+              opacity: { duration: 0.6, delay: 0.3 },
+              y: { duration: 6, delay: 0.9, repeat: Infinity, ease: "easeInOut" },
+            }}
+          >
+            <p className="text-xs uppercase tracking-wider mb-1" style={{ color: "rgba(255,255,255,0.5)" }}>P&L</p>
+            <p className="text-xl font-bold text-green-400">+$24,200</p>
+            <p className="text-xs" style={{ color: "rgba(255,255,255,0.4)" }}>Прибыль за месяц</p>
+            <span className="inline-block mt-1.5 text-xs px-2 py-0.5 rounded-full text-green-400" style={{ background: "rgba(74,222,128,0.18)" }}>
+              ↑ 18% к прошлому
+            </span>
+            <BarChart />
+          </motion.div>
 
-        {/* Выручка — 4th card */}
-        <motion.div
-          className="absolute rounded-2xl p-4 z-20"
-          style={{ ...cardStyle, top: 10, right: 0, width: 170, rotate: 2, y: y4 }}
-          initial={{ opacity: 0, y: 30 }}
-          animate={{ opacity: 1, y: [0, -12, 0] }}
-          transition={{
-            opacity: { duration: 0.6, delay: 0.9 },
-            y: { duration: 6.5, delay: 1.5, repeat: Infinity, ease: "easeInOut" },
-          }}
-        >
-          <p className="text-xs uppercase tracking-wider mb-1" style={{ color: "rgba(255,255,255,0.5)" }}>Выручка</p>
-          <p className="text-lg font-bold text-yellow-200">$142,800</p>
-          <p className="text-xs" style={{ color: "rgba(255,255,255,0.4)" }}>За текущий квартал</p>
-          <span className="inline-block mt-1.5 text-xs px-2 py-0.5 rounded-full text-green-400" style={{ background: "rgba(74,222,128,0.18)" }}>
-            ↑ Q3 рост 24%
-          </span>
-          <div className="mt-3 pt-2.5" style={{ borderTop: "1px solid rgba(255,255,255,0.1)" }}>
-            <div className="flex justify-between text-xs mb-1" style={{ color: "rgba(255,255,255,0.45)" }}>
-              <span>Цель</span><span className="text-yellow-200">$160k</span>
+          {/* ДДС — main */}
+          <motion.div
+            className="absolute rounded-2xl p-5 z-30"
+            style={{ ...cardStyle, top: 30, left: 170, width: 300, y: y2 }}
+            initial={{ opacity: 0, y: 30 }}
+            animate={{ opacity: 1, y: [0, -10, 0] }}
+            transition={{
+              opacity: { duration: 0.6, delay: 0.3 },
+              y: { duration: 6, delay: 0.9, repeat: Infinity, ease: "easeInOut" },
+            }}
+          >
+            <div className="flex justify-between items-center mb-3">
+              <p className="text-sm text-white/60">ДДС</p>
+              <span className="text-xs text-green-400 bg-green-400/10 px-2 py-0.5 rounded-full">+12%</span>
             </div>
-            <div className="h-1.5 rounded-full overflow-hidden" style={{ background: "rgba(255,255,255,0.1)" }}>
-              <motion.div className="h-full rounded-full"
-                style={{ background: "linear-gradient(90deg,#fbbf24,#fde68a)" }}
-                initial={{ width: 0 }} animate={{ width: "89%" }}
-                transition={{ delay: 1.8, duration: 1 }} />
+            <p className="text-2xl font-bold text-indigo-300">$12,430</p>
+            <p className="text-xs text-white/50 mb-3">Остаток на счетах</p>
+            <div className="space-y-2">
+              <ProgressRow label="Поступления" amount="+$38,400" value={78}
+                color="linear-gradient(90deg,#818cf8,#a5b4fc)" delay={0.6} />
+              <ProgressRow label="Расходы" amount="−$25,970" value={53}
+                color="linear-gradient(90deg,#f87171,#fb923c)" delay={0.8} />
             </div>
-            <p className="text-xs mt-1" style={{ color: "rgba(255,255,255,0.3)" }}>89% выполнено</p>
-          </div>
-        </motion.div>
+            <div className="flex justify-between mt-3 pt-3 border-t border-white/10">
+              <span className="text-xs text-white/50">Чистый поток</span>
+              <span className="text-sm font-semibold text-green-400">+$12,430</span>
+            </div>
+            <div className="mt-3 flex items-end gap-1 h-10">
+              {[20, 35, 28, 45, 38, 55].map((h, i) => (
+                <div key={i} style={{ height: h, width: 6 }} className="bg-indigo-400/70 rounded" />
+              ))}
+            </div>
+          </motion.div>
+
+          {/* Баланс */}
+          <motion.div
+            className="absolute rounded-2xl p-4 z-40"
+            style={{ ...cardStyle, bottom: 20, left: 155, width: 195, rotate: -0.5, y: y3 }}
+            initial={{ opacity: 0, y: 30 }}
+            animate={{ opacity: 1, y: [0, -8, 0] }}
+            transition={{
+              opacity: { duration: 0.6, delay: 0.7 },
+              y: { duration: 5.5, delay: 1.3, repeat: Infinity, ease: "easeInOut" },
+            }}
+          >
+            <p className="text-xs uppercase tracking-wider mb-1" style={{ color: "rgba(255,255,255,0.5)" }}>Баланс</p>
+            <p className="text-xl font-bold text-indigo-100">$84,320</p>
+            <p className="text-xs" style={{ color: "rgba(255,255,255,0.4)" }}>Чистые активы</p>
+            <div className="flex h-1.5 rounded-full overflow-hidden mt-2.5">
+              <motion.div className="flex-[2]"
+                style={{ background: "linear-gradient(90deg,#818cf8,#a5b4fc)" }}
+                initial={{ scaleX: 0 }} animate={{ scaleX: 1 }}
+                transition={{ delay: 1.5, duration: 0.8 }} />
+              <div className="flex-1" style={{ background: "rgba(248,113,113,0.6)" }} />
+            </div>
+            <div className="flex justify-between text-xs mt-1.5" style={{ color: "rgba(255,255,255,0.4)" }}>
+              <span>Активы 67%</span>
+              <span className="text-red-400">Пассивы 33%</span>
+            </div>
+          </motion.div>
+
+          {/* Выручка */}
+          <motion.div
+            className="absolute rounded-2xl p-4 z-20"
+            style={{ ...cardStyle, top: 10, right: 0, width: 170, rotate: 2, y: y4 }}
+            initial={{ opacity: 0, y: 30 }}
+            animate={{ opacity: 1, y: [0, -12, 0] }}
+            transition={{
+              opacity: { duration: 0.6, delay: 0.9 },
+              y: { duration: 6.5, delay: 1.5, repeat: Infinity, ease: "easeInOut" },
+            }}
+          >
+            <p className="text-xs uppercase tracking-wider mb-1" style={{ color: "rgba(255,255,255,0.5)" }}>Выручка</p>
+            <p className="text-lg font-bold text-yellow-200">$142,800</p>
+            <p className="text-xs" style={{ color: "rgba(255,255,255,0.4)" }}>За текущий квартал</p>
+            <span className="inline-block mt-1.5 text-xs px-2 py-0.5 rounded-full text-green-400" style={{ background: "rgba(74,222,128,0.18)" }}>
+              ↑ Q3 рост 24%
+            </span>
+            <div className="mt-3 pt-2.5" style={{ borderTop: "1px solid rgba(255,255,255,0.1)" }}>
+              <div className="flex justify-between text-xs mb-1" style={{ color: "rgba(255,255,255,0.45)" }}>
+                <span>Цель</span><span className="text-yellow-200">$160k</span>
+              </div>
+              <div className="h-1.5 rounded-full overflow-hidden" style={{ background: "rgba(255,255,255,0.1)" }}>
+                <motion.div className="h-full rounded-full"
+                  style={{ background: "linear-gradient(90deg,#fbbf24,#fde68a)" }}
+                  initial={{ width: 0 }} animate={{ width: "89%" }}
+                  transition={{ delay: 1.8, duration: 1 }} />
+              </div>
+              <p className="text-xs mt-1" style={{ color: "rgba(255,255,255,0.3)" }}>89% выполнено</p>
+            </div>
+          </motion.div>
+        </div>
       </div>
     </div>
   );
