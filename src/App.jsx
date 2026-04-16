@@ -1,21 +1,21 @@
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 
-import Layout from "./components/Layout";
+import Layout from "./Сomponents/Layout";
 import LandingPage from "./Pages/LandingPage";
 
 
 import Dashboard from "./Pages/Dashboard";
 import Cashflow from "./Pages/Cashflow";
-import PL from "./pages/PL";
-import Balance from "./pages/Balance";
+import PL from "./Pages/PL";
+import Balance from "./Pages/Balance";
 import Settings from "./Pages/Settings";
 import Database from "./Pages/Database";
 import Operations from "./Pages/Operations";
-import Login from "./pages/Login";
-import Register from "./pages/Register";
-import MyWallet from "./pages/MyWallet";
-import MyCompany from "./pages/MyCompany";
-import PrivateRoute from "./components/PrivateRoute";
+import Login from "./Pages/Login";
+import Register from "./Pages/Register";
+import MyWallet from "./Pages/MyWallet";
+import MyCompany from "./Pages/MyCompany";
+import PrivateRoute from "./Components/PrivateRoute";
 import MyCategories from "./Pages/MyCategories";
 import MyProjects from "./Pages/MyProjects";
 
