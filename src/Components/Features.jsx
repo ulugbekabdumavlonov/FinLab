@@ -9,7 +9,7 @@ const items = [
 
 export default function Features() {
   return (
-    <div className="px-16 py-20 grid grid-cols-4 gap-6">
+    <div className="px-6 md:px-16 py-12 md:py-20 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6">
       {items.map((item, i) => (
         <motion.div
           key={i}
@@ -18,7 +18,7 @@ export default function Features() {
           transition={{ delay: i * 0.2 }}
           viewport={{ once: true }}
           whileHover={{ scale: 1.05 }}
-          className="p-6 bg-white rounded-2xl shadow cursor-pointer"
+          className="p-6 bg-white rounded-2xl shadow cursor-pointer text-center md:text-left"
         >
           {item}
         </motion.div>
