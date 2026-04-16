@@ -36,59 +36,53 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-[#1e1b4b] via-[#312e81] to-[#020617] p-6">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-[#1e1b4b] via-[#312e81] to-[#020617] p-4 md:p-6">
 
       {/* MAIN CONTAINER */}
-      <div className="w-full max-w-6xl h-[650px] flex rounded-3xl overflow-hidden shadow-2xl border border-white/10">
+      <div className="w-full max-w-6xl flex flex-col md:flex-row rounded-3xl overflow-hidden shadow-2xl border border-white/10">
 
         {/* LEFT SIDE (ART / VISUAL) */}
-        <div className="hidden md:flex w-1/2 relative bg-gradient-to-br from-indigo-600 via-purple-600 to-blue-500 items-center justify-center">
-
-          {/* glow */}
+        <div className="hidden md:flex w-1/2 relative bg-gradient-to-br from-indigo-600 via-purple-600 to-blue-500 items-center justify-center min-h-[650px]">
           <div className="absolute w-[300px] h-[300px] bg-white/20 blur-[120px] rounded-full"></div>
-
           <motion.div
             initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
             className="text-white text-center z-10 px-10"
           >
-            <h2 className="text-4xl font-bold mb-4">
-              Finlab
-            </h2>
-
+            <h2 className="text-4xl font-bold mb-4">Finlab</h2>
             <p className="text-white/80">
               Управляй финансами бизнеса, анализируй ДДС, P&L и баланс в одном месте
             </p>
           </motion.div>
         </div>
 
-        {/* RIGHT SIDE (FORM) */}
-        <div className="w-full md:w-1/2 bg-white/10 backdrop-blur-xl flex items-center justify-center">
+        {/* MOBILE HEADER (только на телефоне) */}
+        <div className="flex md:hidden w-full bg-gradient-to-br from-indigo-600 via-purple-600 to-blue-500 items-center justify-center py-10 px-6">
+          <div className="text-white text-center">
+            <h2 className="text-3xl font-bold mb-2">Finlab</h2>
+            <p className="text-white/80 text-sm">
+              Управляй финансами бизнеса в одном месте
+            </p>
+          </div>
+        </div>
 
+        {/* RIGHT SIDE (FORM) */}
+        <div className="w-full md:w-1/2 bg-white/10 backdrop-blur-xl flex items-center justify-center py-10 md:py-0">
           <motion.div
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
-            className="w-full max-w-md px-10"
+            className="w-full max-w-md px-6 md:px-10"
           >
-            <h2 className="text-3xl font-bold text-white mb-2">
-              Вход
-            </h2>
+            <h2 className="text-3xl font-bold text-white mb-2">Вход</h2>
+            <p className="text-white/60 mb-6 md:mb-8">Введите данные для входа</p>
 
-            <p className="text-white/60 mb-8">
-              Введите данные для входа
-            </p>
-
-            {/* INPUTS */}
             <div className="flex flex-col gap-5">
-
-              {/* EMAIL */}
               <input
                 placeholder="Email"
                 onChange={(e) => setEmail(e.target.value)}
                 className="bg-white/10 border border-white/20 rounded-xl px-4 py-3 text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
 
-              {/* PASSWORD */}
               <div className="relative">
                 <input
                   type={showPassword ? "text" : "password"}
@@ -96,7 +90,6 @@ export default function Login() {
                   onChange={(e) => setPassword(e.target.value)}
                   className="w-full bg-white/10 border border-white/20 rounded-xl px-4 py-3 pr-10 text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
-
                 <div
                   onClick={() => setShowPassword(!showPassword)}
                   className="absolute right-3 top-3 text-white/60 cursor-pointer"
@@ -105,7 +98,6 @@ export default function Login() {
                 </div>
               </div>
 
-              {/* LOGIN BUTTON */}
               <button
                 onClick={handleLogin}
                 className="mt-2 py-3 rounded-xl bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-semibold hover:scale-105 transition shadow-lg"
@@ -113,7 +105,6 @@ export default function Login() {
                 Войти
               </button>
 
-              {/* GOOGLE */}
               <button
                 onClick={handleGoogle}
                 className="flex items-center justify-center gap-2 py-3 rounded-xl bg-white/10 border border-white/20 text-white hover:bg-white/20 transition"
@@ -122,12 +113,8 @@ export default function Login() {
                 Войти через Google
               </button>
 
-              {/* LINKS */}
               <div className="flex justify-between text-sm text-white/60 mt-2">
-                <span className="hover:text-white cursor-pointer">
-                  Забыли пароль?
-                </span>
-
+                <span className="hover:text-white cursor-pointer">Забыли пароль?</span>
                 <span
                   onClick={() => navigate("/register")}
                   className="hover:text-white cursor-pointer"
@@ -135,7 +122,6 @@ export default function Login() {
                   Регистрация
                 </span>
               </div>
-
             </div>
           </motion.div>
         </div>
