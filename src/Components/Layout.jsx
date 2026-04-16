@@ -6,18 +6,17 @@ export default function Layout() {
     <div>
       <Sidebar />
 
-      <div style={styles.main}>
+      {/* 
+        На десктопе: отступ слева 260px (сайдбар фиксированный)
+        На мобильных: отступ сверху 56px (верхняя панель с бургером), нет отступа слева
+      */}
+      <div className="
+        md:ml-[260px] md:pt-0
+        ml-0 pt-[56px]
+        min-h-screen bg-[#f8fafc] p-5
+      ">
         <Outlet />
       </div>
     </div>
   );
 }
-
-const styles = {
-  main: {
-    marginLeft: "260px", // 🔥 ключевое
-    padding: "20px",
-    minHeight: "100vh",
-    background: "#f8fafc",
-  },
-};
