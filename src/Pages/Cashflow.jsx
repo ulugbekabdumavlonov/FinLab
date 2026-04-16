@@ -3,10 +3,8 @@ import { collection, getDocs } from "firebase/firestore";
 import { auth, db } from "../firebase";
 import { useCurrency } from "./useCurrency";
 
-// ─── Firestore ────────────────────────────────────────────────────────────────
 const userCol = (name) => collection(db, "users", auth.currentUser.uid, name);
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
 const fmt = (n) =>
   Math.abs(n).toLocaleString("ru-RU", { minimumFractionDigits: 0, maximumFractionDigits: 0 });
 
@@ -25,7 +23,6 @@ function normalizeDate(raw) {
   return null;
 }
 
-// ─── getSection теперь использует динамический map из Firestore ───────────────
 function normalize(str) {
   return (str || "").trim().toLowerCase();
 }
@@ -33,18 +30,10 @@ function normalize(str) {
 const getSection = (tx, map) => {
   const cat = normalize(tx.Category || tx.category || "");
   const type = map[cat];
-
-  if (type === "op" || type === "inv" || type === "fin") {
-    return type;
-  }
-
-  console.warn("❌ NO MATCH CATEGORY:", tx.Category || tx.category);
-
-  // ⚠️ fallback ТОЛЬКО безопасный
-  return "fin"; // или "unknown"
+  if (type === "op" || type === "inv" || type === "fin") return type;
+  return "fin";
 };
 
-// ─── Palette ──────────────────────────────────────────────────────────────────
 const C = {
   ink:        "#111827",
   inkMid:     "#374151",
@@ -62,7 +51,16 @@ const C = {
   accentBg:   "#eff6ff",
 };
 
-// ─── Pill ─────────────────────────────────────────────────────────────────────
+function useIsMobile() {
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+  useEffect(() => {
+    const handler = () => setIsMobile(window.innerWidth < 768);
+    window.addEventListener("resize", handler);
+    return () => window.removeEventListener("resize", handler);
+  }, []);
+  return isMobile;
+}
+
 function Pill({ label, active, onClick }) {
   return (
     <button onClick={onClick} style={{
@@ -78,24 +76,43 @@ function Pill({ label, active, onClick }) {
   );
 }
 
-// ─── KPI Card ─────────────────────────────────────────────────────────────────
 function KpiCard({ label, value, pos }) {
   return (
-    <div style={{ background: C.surface, padding: "20px 24px", borderRight: `1px solid ${C.border}` }}>
-      <div style={{ fontSize: 12, color: C.inkLight, fontWeight: 400, marginBottom: 8 }}>{label}</div>
-      <div style={{ fontSize: 22, fontWeight: 400, color: pos ? C.pos : C.neg, fontVariantNumeric: "tabular-nums", letterSpacing: "-0.5px" }}>
+    <div style={{
+      background: C.surface,
+      padding: "12px 16px",
+      borderRight: `1px solid ${C.border}`,
+      borderBottom: `1px solid ${C.border}`,
+    }}>
+      <div style={{ fontSize: 11, color: C.inkLight, fontWeight: 400, marginBottom: 4 }}>{label}</div>
+      <div style={{
+        fontSize: 16,
+        fontWeight: 400,
+        color: pos ? C.pos : C.neg,
+        fontVariantNumeric: "tabular-nums",
+        letterSpacing: "-0.5px",
+      }}>
         {value}
       </div>
     </div>
   );
 }
 
-// ─── Table header ─────────────────────────────────────────────────────────────
 function TableHeader() {
   return (
-    <div style={{ display: "grid", gridTemplateColumns: "96px 1fr 160px 130px 110px", padding: "8px 20px", borderBottom: `1px solid ${C.border}`, background: C.surfaceAlt }}>
-      {["Дата","Контрагент / Детали","Статья","Проект","Сумма"].map((h, i) => (
-        <div key={h} style={{ fontSize: 11, fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.06em", color: C.inkLight, textAlign: i === 4 ? "right" : "left" }}>
+    <div style={{
+      display: "grid",
+      gridTemplateColumns: "90px 1fr 150px 120px 110px",
+      padding: "6px 16px",
+      borderBottom: `1px solid ${C.border}`,
+      background: C.surfaceAlt,
+    }}>
+      {["Дата", "Контрагент / Детали", "Статья", "Проект", "Сумма"].map((h, i) => (
+        <div key={h} style={{
+          fontSize: 10, fontWeight: 500,
+          textTransform: "uppercase", letterSpacing: "0.06em",
+          color: C.inkLight, textAlign: i === 4 ? "right" : "left",
+        }}>
           {h}
         </div>
       ))}
@@ -103,8 +120,7 @@ function TableHeader() {
   );
 }
 
-// ─── Entry row ────────────────────────────────────────────────────────────────
-function EntryRow({ tx }) {
+function EntryRowDesktop({ tx }) {
   const sum   = Number(tx.Sum ?? tx.amount ?? 0);
   const isPos = sum >= 0;
   const date  = tx._isoDate ? tx._isoDate.split("-").reverse().join(".") : "—";
@@ -112,25 +128,34 @@ function EntryRow({ tx }) {
 
   return (
     <div
-      style={{ display: "grid", gridTemplateColumns: "96px 1fr 160px 130px 110px", padding: "10px 20px", borderBottom: `1px solid ${C.border}`, alignItems: "center", fontSize: 14, cursor: "default", transition: "background 0.1s" }}
+      style={{
+        display: "grid",
+        gridTemplateColumns: "90px 1fr 150px 120px 110px",
+        padding: "8px 16px",
+        borderBottom: `1px solid ${C.border}`,
+        alignItems: "center",
+        fontSize: 13,
+        cursor: "default",
+        transition: "background 0.1s",
+      }}
       onMouseEnter={(e) => e.currentTarget.style.background = C.surfaceAlt}
       onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}
     >
-      <div style={{ color: C.inkLight, fontSize: 13 }}>{date}</div>
+      <div style={{ color: C.inkLight, fontSize: 12 }}>{date}</div>
       <div style={{ overflow: "hidden" }}>
         <div style={{ fontWeight: 500, color: C.ink, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
           {tx.Counterparty || tx.counterparty || "—"}
         </div>
-        <div style={{ fontSize: 12, color: C.inkLight, marginTop: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+        <div style={{ fontSize: 11, color: C.inkLight, marginTop: 1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
           {tx.Details || tx.description || ""}
         </div>
       </div>
       <div>
-        <span style={{ fontSize: 12, padding: "3px 10px", borderRadius: 5, background: C.surfaceAlt, color: C.inkMid, border: `1px solid ${C.border}`, whiteSpace: "nowrap" }}>
+        <span style={{ fontSize: 11, padding: "2px 8px", borderRadius: 4, background: C.surfaceAlt, color: C.inkMid, border: `1px solid ${C.border}`, whiteSpace: "nowrap" }}>
           {tx.Category || tx.category || "—"}
         </span>
       </div>
-      <div style={{ fontSize: 13, color: C.inkMid, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+      <div style={{ fontSize: 12, color: C.inkMid, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
         {tx.Project || tx.direction || "—"}
       </div>
       <div style={{ textAlign: "right", fontWeight: 500, color: isPos ? C.pos : C.neg, whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" }}>
@@ -140,79 +165,145 @@ function EntryRow({ tx }) {
   );
 }
 
-// ─── Category breakdown row ───────────────────────────────────────────────────
-function CategoryBar({ name, inflow, outflow, maxAbs, symbol }) {
-  const net   = inflow - outflow;
-  const barW  = maxAbs > 0 ? Math.round((Math.abs(net) / maxAbs) * 100) : 0;
-  const isPos = net >= 0;
+function EntryCardMobile({ tx }) {
+  const sum   = Number(tx.Sum ?? tx.amount ?? 0);
+  const isPos = sum >= 0;
+  const date  = tx._isoDate ? tx._isoDate.split("-").reverse().join(".") : "—";
+  const txCurrency = tx._accountCurrency || "UZS";
 
   return (
-    <div style={{ display: "grid", gridTemplateColumns: "180px 1fr 120px 120px 120px", alignItems: "center", gap: 12, padding: "7px 20px", borderBottom: `1px solid ${C.border}` }}>
-      <div style={{ fontSize: 13, color: C.inkMid, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{name}</div>
-      <div style={{ height: 4, background: C.surfaceAlt, borderRadius: 2, overflow: "hidden" }}>
-        <div style={{ width: barW + "%", height: "100%", background: isPos ? C.pos : C.neg, borderRadius: 2, opacity: 0.5, transition: "width 0.4s" }} />
+    <div style={{
+      padding: "10px 14px",
+      borderBottom: `1px solid ${C.border}`,
+      display: "flex",
+      justifyContent: "space-between",
+      alignItems: "flex-start",
+      gap: 10,
+    }}>
+      <div style={{ flex: 1, overflow: "hidden" }}>
+        <div style={{ fontWeight: 500, color: C.ink, fontSize: 13, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+          {tx.Counterparty || tx.counterparty || "—"}
+        </div>
+        <div style={{ fontSize: 11, color: C.inkLight, marginTop: 2 }}>
+          {date} · {tx.Category || tx.category || "—"}
+        </div>
       </div>
-      <div style={{ textAlign: "right", fontSize: 13, color: C.pos, fontVariantNumeric: "tabular-nums" }}>
-        {inflow > 0 ? "+" + fmt(inflow) + " " + symbol : "—"}
-      </div>
-      <div style={{ textAlign: "right", fontSize: 13, color: C.neg, fontVariantNumeric: "tabular-nums" }}>
-        {outflow > 0 ? "−" + fmt(outflow) + " " + symbol : "—"}
-      </div>
-      <div style={{ textAlign: "right", fontSize: 13, fontWeight: 500, color: isPos ? C.pos : C.neg, fontVariantNumeric: "tabular-nums" }}>
-        {isPos ? "+" : "−"}{fmt(Math.abs(net))} {symbol}
+      <div style={{ fontWeight: 600, color: isPos ? C.pos : C.neg, fontSize: 13, whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" }}>
+        {isPos ? "+" : "−"}{fmt(sum)} {txCurrency}
       </div>
     </div>
   );
 }
 
-// ─── Section summary ──────────────────────────────────────────────────────────
-function SectionSummary({ transactions, symbol }) {
-  const inflow  = transactions.filter(t => Number(t._converted ?? t.Sum ?? t.amount ?? 0) >= 0).reduce((s, t) => s + Number(t._converted ?? t.Sum ?? t.amount ?? 0), 0);
-  const outflow = transactions.filter(t => Number(t._converted ?? t.Sum ?? t.amount ?? 0) < 0).reduce((s, t) => s + Math.abs(Number(t._converted ?? t.Sum ?? t.amount ?? 0)), 0);
+function EntryRow({ tx }) {
+  const isMobile = useIsMobile();
+  return isMobile ? <EntryCardMobile tx={tx} /> : <EntryRowDesktop tx={tx} />;
+}
 
+// ─── SubGroup: "Поступления" или "Выплаты" внутри секции ─────────────────────
+function SubGroup({ label, transactions, symbol, isPos }) {
+  const isMobile = useIsMobile();
+  const [open, setOpen] = useState(false);
+  const [showRows, setShowRows] = useState(false);
+
+  const total = transactions.reduce((s, t) => s + Math.abs(Number(t._converted ?? t.Sum ?? t.amount ?? 0)), 0);
+
+  // Группировка по категориям
   const catMap = {};
   for (const tx of transactions) {
     const cat = tx.Category || tx.category || "Без категории";
-    const sum = Number(tx._converted ?? tx.Sum ?? tx.amount ?? 0);
-    if (!catMap[cat]) catMap[cat] = { inflow: 0, outflow: 0 };
-    if (sum >= 0) catMap[cat].inflow  += sum;
-    else          catMap[cat].outflow += Math.abs(sum);
+    const sum = Math.abs(Number(tx._converted ?? tx.Sum ?? tx.amount ?? 0));
+    if (!catMap[cat]) catMap[cat] = 0;
+    catMap[cat] += sum;
   }
-  const cats   = Object.entries(catMap).sort((a, b) => (b[1].inflow + b[1].outflow) - (a[1].inflow + a[1].outflow));
-  const maxAbs = Math.max(...cats.map(([, v]) => Math.abs(v.inflow - v.outflow)), 1);
+  const cats = Object.entries(catMap).sort((a, b) => b[1] - a[1]);
+  const maxVal = Math.max(...cats.map(([, v]) => v), 1);
 
   return (
-    <div>
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", borderBottom: `1px solid ${C.border}` }}>
-        <div style={{ padding: "14px 24px", borderRight: `1px solid ${C.border}` }}>
-          <div style={{ fontSize: 12, color: C.inkLight, marginBottom: 6 }}>Поступления</div>
-          <div style={{ fontSize: 18, fontWeight: 400, color: C.pos, fontVariantNumeric: "tabular-nums" }}>+{fmt(inflow)} {symbol}</div>
+    <div style={{ borderBottom: `1px solid ${C.border}` }}>
+      {/* Заголовок подгруппы */}
+      <div
+        onClick={() => setOpen(!open)}
+        style={{
+          display: "flex", alignItems: "center", justifyContent: "space-between",
+          padding: isMobile ? "8px 14px" : "8px 16px",
+          cursor: "pointer", userSelect: "none",
+          background: C.surfaceAlt,
+        }}
+      >
+        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          <span style={{
+            fontSize: 11, width: 16, height: 16, display: "inline-flex", alignItems: "center", justifyContent: "center",
+            border: `1px solid ${C.borderMid}`, borderRadius: 3, color: C.inkLight, flexShrink: 0,
+            transition: "transform 0.2s",
+          }}>
+            {open ? "−" : "+"}
+          </span>
+          <span style={{ fontSize: 13, color: C.inkMid, fontWeight: 400 }}>{label}</span>
+          <span style={{ fontSize: 11, color: C.inkLight }}>({transactions.length})</span>
         </div>
-        <div style={{ padding: "14px 24px", borderRight: `1px solid ${C.border}` }}>
-          <div style={{ fontSize: 12, color: C.inkLight, marginBottom: 6 }}>Списания</div>
-          <div style={{ fontSize: 18, fontWeight: 400, color: outflow > 0 ? C.neg : C.inkLight, fontVariantNumeric: "tabular-nums" }}>
-            {outflow > 0 ? "−" + fmt(outflow) + " " + symbol : "—"}
-          </div>
-        </div>
-        <div style={{ padding: "14px 24px" }}>
-          <div style={{ fontSize: 12, color: C.inkLight, marginBottom: 6 }}>Сальдо</div>
-          <div style={{ fontSize: 18, fontWeight: 400, color: (inflow - outflow) >= 0 ? C.pos : C.neg, fontVariantNumeric: "tabular-nums" }}>
-            {(inflow - outflow) >= 0 ? "+" : "−"}{fmt(Math.abs(inflow - outflow))} {symbol}
-          </div>
-        </div>
+        <span style={{
+          fontSize: 13, fontWeight: 500,
+          color: total === 0 ? C.inkLight : (isPos ? C.pos : C.neg),
+          fontVariantNumeric: "tabular-nums",
+        }}>
+          {total === 0 ? "—" : (isPos ? "+" : "−") + fmt(total) + " " + symbol}
+        </span>
       </div>
 
-      {cats.length > 0 && (
-        <>
-          <div style={{ display: "grid", gridTemplateColumns: "180px 1fr 120px 120px 120px", gap: 12, padding: "6px 20px", background: C.surfaceAlt, borderBottom: `1px solid ${C.border}` }}>
-            {["Статья", "", "Поступления", "Списания", "Нетто"].map((h, i) => (
-              <div key={i} style={{ fontSize: 11, fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.06em", color: C.inkLight, textAlign: i >= 2 ? "right" : "left" }}>{h}</div>
-            ))}
+      {/* Категории */}
+      {open && (
+        <div>
+          {cats.map(([name, val]) => {
+            const barW = Math.round((val / maxVal) * 80);
+            return (
+              <div key={name} style={{
+                display: "flex", alignItems: "center", gap: isMobile ? 8 : 12,
+                padding: isMobile ? "6px 14px 6px 36px" : "6px 16px 6px 38px",
+                borderTop: `1px solid ${C.border}`,
+              }}>
+                <div style={{ fontSize: 12, color: C.inkMid, width: isMobile ? 100 : 160, flexShrink: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  {name}
+                </div>
+                <div style={{ flex: 1, height: 3, background: C.border, borderRadius: 2, overflow: "hidden" }}>
+                  <div style={{
+                    width: barW + "%", height: "100%",
+                    background: isPos ? C.pos : C.neg,
+                    borderRadius: 2, opacity: 0.45,
+                    transition: "width 0.35s",
+                  }} />
+                </div>
+                <div style={{ fontSize: 12, fontWeight: 500, color: isPos ? C.pos : C.neg, fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" }}>
+                  {isPos ? "+" : "−"}{fmt(val)} {symbol}
+                </div>
+              </div>
+            );
+          })}
+
+          {/* Показать транзакции */}
+          <div
+            onClick={() => setShowRows(!showRows)}
+            style={{
+              padding: "7px 16px 7px 38px", display: "flex", alignItems: "center", gap: 5,
+              cursor: "pointer", borderTop: `1px solid ${C.border}`, background: C.surface,
+            }}
+          >
+            <span style={{ fontSize: 11, color: C.accent, fontWeight: 500 }}>
+              {showRows ? "Скрыть транзакции" : `Показать транзакции (${transactions.length})`}
+            </span>
+            <span style={{ fontSize: 9, color: C.accent, display: "inline-block", transition: "transform 0.2s", transform: showRows ? "rotate(180deg)" : "rotate(0)" }}>▾</span>
           </div>
-          {cats.map(([name, vals]) => (
-            <CategoryBar key={name} name={name} inflow={vals.inflow} outflow={vals.outflow} maxAbs={maxAbs} symbol={symbol} />
-          ))}
-        </>
+
+          {showRows && (
+            <div style={{ borderTop: `1px solid ${C.border}` }}>
+              {!isMobile && <TableHeader />}
+              {transactions.length === 0
+                ? <div style={{ padding: "20px", textAlign: "center", color: C.inkLight, fontSize: 13 }}>Нет транзакций</div>
+                : transactions.map((tx, i) => <EntryRow key={tx.id || i} tx={tx} />)
+              }
+            </div>
+          )}
+        </div>
       )}
     </div>
   );
@@ -220,18 +311,29 @@ function SectionSummary({ transactions, symbol }) {
 
 // ─── Section ──────────────────────────────────────────────────────────────────
 function Section({ title, total, transactions, symbol }) {
-  const [open,     setOpen]     = useState(true);
-  const [showRows, setShowRows] = useState(false);
+  const isMobile = useIsMobile();
+  const [open, setOpen] = useState(true);
+
+  const inflowTxs  = transactions.filter(t => Number(t._converted ?? t.Sum ?? t.amount ?? 0) >= 0);
+  const outflowTxs = transactions.filter(t => Number(t._converted ?? t.Sum ?? t.amount ?? 0) < 0);
 
   return (
-    <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 10, overflow: "hidden", marginBottom: 12 }}>
-      <div onClick={() => setOpen(!open)} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 20px", cursor: "pointer", borderBottom: open ? `1px solid ${C.border}` : "none", userSelect: "none" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 14, fontWeight: 500, color: C.ink }}>
+    <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 8, overflow: "hidden", marginBottom: 8 }}>
+      {/* Заголовок секции */}
+      <div
+        onClick={() => setOpen(!open)}
+        style={{
+          display: "flex", alignItems: "center", justifyContent: "space-between",
+          padding: isMobile ? "10px 14px" : "11px 16px",
+          cursor: "pointer", borderBottom: open ? `1px solid ${C.border}` : "none", userSelect: "none",
+        }}
+      >
+        <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: isMobile ? 13 : 14, fontWeight: 600, color: C.ink }}>
           {title}
-          <span style={{ fontWeight: 400, color: C.inkLight, fontSize: 13 }}>({transactions.length})</span>
+          <span style={{ fontWeight: 400, color: C.inkLight, fontSize: 11 }}>({transactions.length})</span>
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-          <span style={{ fontSize: 15, fontWeight: 500, color: total >= 0 ? C.pos : C.neg, fontVariantNumeric: "tabular-nums" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <span style={{ fontSize: isMobile ? 13 : 14, fontWeight: 600, color: total >= 0 ? C.pos : C.neg, fontVariantNumeric: "tabular-nums" }}>
             {fmtSigned(total, symbol)}
           </span>
           <span style={{ fontSize: 10, color: C.inkFaint, display: "inline-block", transition: "transform 0.2s", transform: open ? "rotate(180deg)" : "rotate(0)" }}>▾</span>
@@ -240,22 +342,8 @@ function Section({ title, total, transactions, symbol }) {
 
       {open && (
         <>
-          <SectionSummary transactions={transactions} symbol={symbol} />
-          <div onClick={() => setShowRows(!showRows)} style={{ padding: "9px 20px", display: "flex", alignItems: "center", gap: 6, cursor: "pointer", borderTop: `1px solid ${C.border}`, background: C.surfaceAlt }}>
-            <span style={{ fontSize: 12, color: C.accent, fontWeight: 500 }}>
-              {showRows ? "Скрыть транзакции" : `Показать все транзакции (${transactions.length})`}
-            </span>
-            <span style={{ fontSize: 9, color: C.accent, display: "inline-block", transition: "transform 0.2s", transform: showRows ? "rotate(180deg)" : "rotate(0)" }}>▾</span>
-          </div>
-          {showRows && (
-            <>
-              <TableHeader />
-              {transactions.length === 0
-                ? <div style={{ padding: "28px 20px", textAlign: "center", color: C.inkLight, fontSize: 14 }}>Нет транзакций</div>
-                : transactions.map((tx, i) => <EntryRow key={tx.id || i} tx={tx} />)
-              }
-            </>
-          )}
+          <SubGroup label="Поступления" transactions={inflowTxs}  symbol={symbol} isPos={true}  />
+          <SubGroup label="Выплаты"     transactions={outflowTxs} symbol={symbol} isPos={false} />
         </>
       )}
     </div>
@@ -264,6 +352,7 @@ function Section({ title, total, transactions, symbol }) {
 
 // ─── Waterfall ────────────────────────────────────────────────────────────────
 function Waterfall({ op, inv, fin, symbol }) {
+  const isMobile = useIsMobile();
   const net    = op + inv + fin;
   const maxVal = Math.max(Math.abs(op), Math.abs(inv), Math.abs(fin), Math.abs(net), 1);
   const pct    = (v) => Math.round((Math.abs(v) / maxVal) * 84);
@@ -275,32 +364,32 @@ function Waterfall({ op, inv, fin, symbol }) {
   ];
 
   return (
-    <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 10, padding: "20px 24px", marginBottom: 12 }}>
-      <div style={{ fontSize: 12, color: C.inkLight, fontWeight: 500, marginBottom: 18, textTransform: "uppercase", letterSpacing: "0.06em" }}>
+    <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 8, padding: isMobile ? "14px" : "16px 20px", marginBottom: 8 }}>
+      <div style={{ fontSize: 11, color: C.inkLight, fontWeight: 500, marginBottom: 12, textTransform: "uppercase", letterSpacing: "0.06em" }}>
         Структура потоков
       </div>
       {rows.map((r) => (
-        <div key={r.label} style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 10 }}>
-          <div style={{ fontSize: 13, width: 150, flexShrink: 0, color: C.inkMid }}>{r.label}</div>
-          <div style={{ flex: 1, height: 20, background: C.surfaceAlt, borderRadius: 4, overflow: "hidden", border: `1px solid ${C.border}` }}>
+        <div key={r.label} style={{ display: "flex", alignItems: "center", gap: isMobile ? 8 : 12, marginBottom: 8 }}>
+          <div style={{ fontSize: 12, width: isMobile ? 110 : 140, flexShrink: 0, color: C.inkMid }}>{r.label}</div>
+          <div style={{ flex: 1, height: 18, background: C.surfaceAlt, borderRadius: 3, overflow: "hidden", border: `1px solid ${C.border}` }}>
             <div style={{
               width: pct(r.val) + "%", height: "100%",
               background: r.val >= 0 ? C.posBg : C.negBg,
               borderRight: `2px solid ${r.val >= 0 ? C.pos : C.neg}`,
-              borderRadius: "4px 0 0 4px",
-              display: "flex", alignItems: "center", justifyContent: "flex-end", paddingRight: 8,
+              borderRadius: "3px 0 0 3px",
+              display: "flex", alignItems: "center", justifyContent: "flex-end", paddingRight: 6,
               transition: "width 0.4s",
             }}>
-              <span style={{ fontSize: 11, fontWeight: 500, color: r.val >= 0 ? C.pos : C.neg, fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" }}>
+              <span style={{ fontSize: 10, fontWeight: 500, color: r.val >= 0 ? C.pos : C.neg, fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" }}>
                 {fmtSigned(r.val, symbol)}
               </span>
             </div>
           </div>
         </div>
       ))}
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 0 0", marginTop: 6, borderTop: `1px solid ${C.border}` }}>
-        <span style={{ fontSize: 14, color: C.inkMid }}>Чистое изменение за период</span>
-        <span style={{ fontSize: 18, fontWeight: 500, color: net >= 0 ? C.pos : C.neg, fontVariantNumeric: "tabular-nums" }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 0 0", marginTop: 4, borderTop: `1px solid ${C.border}` }}>
+        <span style={{ fontSize: isMobile ? 12 : 13, color: C.inkMid }}>Чистое изменение за период</span>
+        <span style={{ fontSize: isMobile ? 14 : 16, fontWeight: 500, color: net >= 0 ? C.pos : C.neg, fontVariantNumeric: "tabular-nums" }}>
           {fmtSigned(net, symbol)}
         </span>
       </div>
@@ -310,8 +399,10 @@ function Waterfall({ op, inv, fin, symbol }) {
 
 // ─── Main ─────────────────────────────────────────────────────────────────────
 export default function CashFlow() {
+  const isMobile = useIsMobile();
+
   const [transactions,     setTransactions]     = useState([]);
-  const [categoryTypeMap,  setCategoryTypeMap]  = useState({}); // ← новый стейт
+  const [categoryTypeMap,  setCategoryTypeMap]  = useState({});
   const [loading,          setLoading]          = useState(true);
   const [error,            setError]            = useState(null);
 
@@ -322,7 +413,6 @@ export default function CashFlow() {
   const [category, setCategory] = useState("all");
   const [account,  setAccount]  = useState("all");
 
-  // ── Хук валюты ──────────────────────────────────────────────────────────────
   const { targetCurrency, convert, symbol, loading: currencyLoading } = useCurrency();
 
   const applyPeriod = (p) => {
@@ -344,28 +434,24 @@ export default function CashFlow() {
   useEffect(() => {
     (async () => {
       try {
-        // ── Загружаем транзакции, счета и категории параллельно ────────────
         const [txSnap, accSnap, catSnap] = await Promise.all([
           getDocs(userCol("transactions")),
           getDocs(userCol("accounts")),
-          getDocs(userCol("operation_categories")), // ← загружаем категории
+          getDocs(userCol("operation_categories")),
         ]);
 
-        // Строим map: accountName → currency
         const accountCurrencyMap = {};
         accSnap.docs.forEach((d) => {
           const data = d.data();
           if (data.name) accountCurrencyMap[data.name] = data.currency || "UZS";
         });
 
-        // ── Строим map: categoryName → type ("op" | "inv" | "fin") ────────
         const catTypeMap = {};
         catSnap.docs.forEach((d) => {
           const data = d.data();
-
           if (data.name && data.type) {
-             const key = normalize(data.name);
-             catTypeMap[key] = data.type;
+            const key = normalize(data.name);
+            catTypeMap[key] = data.type;
           }
         });
         setCategoryTypeMap(catTypeMap);
@@ -391,7 +477,6 @@ export default function CashFlow() {
     })();
   }, []);
 
-  // ── Добавляем _converted к каждой транзакции ─────────────────────────────
   const transactionsWithConversion = useMemo(() => {
     return transactions.map((tx) => ({
       ...tx,
@@ -416,14 +501,11 @@ export default function CashFlow() {
     if (dateTo   && tx._isoDate && tx._isoDate > dateTo)   return false;
     if (project !== "all" && (tx.Project || tx.direction || "") !== project) return false;
     if (account !== "all" && (tx.Account || tx.walletName || "") !== account) return false;
-    // ── Фильтр по деятельности теперь использует динамический map ──────
     if (category !== "all" && getSection(tx, categoryTypeMap) !== category) return false;
     return true;
   }), [transactionsWithConversion, dateFrom, dateTo, project, account, category, categoryTypeMap]);
 
-  // ── Итоги считаем по _converted ──────────────────────────────────────────
   const sumArr  = (arr) => arr.reduce((s, t) => s + Number(t._converted ?? 0), 0);
-  // ── Секции используют динамический map ───────────────────────────────────
   const opTxs   = filtered.filter((t) => getSection(t, categoryTypeMap) === "op");
   const invTxs  = filtered.filter((t) => getSection(t, categoryTypeMap) === "inv");
   const finTxs  = filtered.filter((t) => getSection(t, categoryTypeMap) === "fin");
@@ -443,21 +525,29 @@ export default function CashFlow() {
   const inputStyle = {
     fontFamily: "inherit", fontSize: 12, padding: "5px 9px",
     border: `0.5px solid ${C.borderMid}`, borderRadius: 4,
-    background: C.surface, color: C.ink, outline: "none", width: 130,
+    background: C.surface, color: C.ink, outline: "none",
+    width: isMobile ? "100%" : 130,
   };
 
   const isLoading = loading || currencyLoading;
 
   return (
-    <div style={{ fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif", maxWidth: 1100, padding: "2rem 1rem", color: C.ink, background: C.surfaceAlt, minHeight: "100vh" }}>
+    <div style={{
+      fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+      maxWidth: 1100,
+      padding: isMobile ? "0.75rem" : "1.5rem 1rem",
+      color: C.ink,
+      background: C.surfaceAlt,
+      minHeight: "100vh",
+    }}>
 
       {/* Title */}
-      <div style={{ marginBottom: "1.5rem" }}>
-        <h1 style={{ fontSize: 22, fontWeight: 600, letterSpacing: -0.3, margin: 0, color: C.ink }}>
+      <div style={{ marginBottom: "1rem" }}>
+        <h1 style={{ fontSize: isMobile ? 17 : 20, fontWeight: 600, letterSpacing: -0.3, margin: 0, color: C.ink }}>
           Движение денежных средств
         </h1>
-        <p>
-          < span style={{ marginLeft: -1, padding: "2px 8px", background: C.accentBg, color: C.accent, borderRadius: 4, fontSize: 11, fontWeight: 500 }}>
+        <p style={{ margin: "4px 0 0" }}>
+          <span style={{ padding: "2px 8px", background: C.accentBg, color: C.accent, borderRadius: 4, fontSize: 11, fontWeight: 500 }}>
             Итоги в {targetCurrency}
           </span>
         </p>
@@ -523,7 +613,15 @@ export default function CashFlow() {
       </div>
 
       {/* KPI row */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", background: C.border, border: `1px solid ${C.border}`, borderRadius: 10, overflow: "hidden", marginBottom: 14 }}>
+      <div style={{
+        display: "grid",
+        gridTemplateColumns: isMobile ? "repeat(2, 1fr)" : "repeat(4, 1fr)",
+        background: C.border,
+        border: `1px solid ${C.border}`,
+        borderRadius: 8,
+        overflow: "hidden",
+        marginBottom: 10,
+      }}>
         <KpiCard label="Операционный поток"   value={fmtSigned(opTotal, symbol)}  pos={opTotal  >= 0} />
         <KpiCard label="Инвестиционный поток"  value={fmtSigned(invTotal, symbol)} pos={invTotal >= 0} />
         <KpiCard label="Финансовый поток"      value={fmtSigned(finTotal, symbol)} pos={finTotal >= 0} />
@@ -531,12 +629,12 @@ export default function CashFlow() {
       </div>
 
       {error && (
-        <div style={{ padding: "12px 16px", background: C.negBg, border: `0.5px solid ${C.neg}`, borderRadius: 6, color: C.neg, fontSize: 13, marginBottom: 14 }}>
+        <div style={{ padding: "10px 14px", background: C.negBg, border: `0.5px solid ${C.neg}`, borderRadius: 6, color: C.neg, fontSize: 13, marginBottom: 10 }}>
           Ошибка загрузки: {error}
         </div>
       )}
       {isLoading && (
-        <div style={{ textAlign: "center", padding: "48px 0", color: C.inkLight, fontSize: 13 }}>
+        <div style={{ textAlign: "center", padding: "40px 0", color: C.inkLight, fontSize: 13 }}>
           Загрузка данных…
         </div>
       )}
