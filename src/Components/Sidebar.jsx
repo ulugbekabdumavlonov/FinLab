@@ -17,7 +17,9 @@ import {
   FileText,
   LayoutList,
   Folder,
-  LogOut
+  LogOut,
+  Menu,
+  X
 } from "lucide-react";
 
 export default function Sidebar() {
@@ -25,6 +27,7 @@ export default function Sidebar() {
   const [openReports, setOpenReports] = useState(true);
   const [openSystem, setOpenSystem] = useState(true);
   const [openInfo, setOpenInfo] = useState(true);
+  const [mobileOpen, setMobileOpen] = useState(false);
 
   const navigate = useNavigate();
   const location = useLocation();
@@ -34,6 +37,11 @@ export default function Sidebar() {
     return () => unsub();
   }, []);
 
+  // Закрываем меню при переходе на другую страницу
+  useEffect(() => {
+    setMobileOpen(false);
+  }, [location.pathname]);
+
   const handleLogout = async () => {
     await signOut(auth);
     navigate("/");
@@ -41,14 +49,20 @@ export default function Sidebar() {
 
   const isActive = (path) => location.pathname === path;
 
-  return (
-    <div className="fixed left-0 top-0 h-screen w-[270px] flex flex-col 
-    bg-gradient-to-b from-[#0b1220] via-[#0f172a] to-[#020617] 
-    border-r border-white/10 backdrop-blur-xl shadow-2xl z-50">
-
+  const sidebarContent = (
+    <div className="flex flex-col h-full">
       {/* LOGO */}
-      <div className="px-6 py-5 text-xl font-bold bg-gradient-to-r from-blue-400 to-indigo-500 bg-clip-text text-transparent">
-        Finlab
+      <div className="px-6 py-5 flex items-center justify-between">
+        <span className="text-xl font-bold bg-gradient-to-r from-blue-400 to-indigo-500 bg-clip-text text-transparent">
+          Finlab
+        </span>
+        {/* Кнопка закрытия — только на мобильных */}
+        <button
+          onClick={() => setMobileOpen(false)}
+          className="md:hidden text-white/50 hover:text-white transition"
+        >
+          <X size={22} />
+        </button>
       </div>
 
       {/* USER */}
@@ -61,8 +75,6 @@ export default function Sidebar() {
 
       {/* MENU */}
       <div className="flex-1 overflow-y-auto px-3 space-y-4">
-
-        {/* REPORTS */}
         <Section
           title="Отчёты"
           open={openReports}
@@ -74,7 +86,6 @@ export default function Sidebar() {
           <NavItem to="/app/balance" icon={<PieChart size={18} />} label="Баланс" active={isActive("/app/balance")} />
         </Section>
 
-        {/* SYSTEM */}
         <Section
           title="Система"
           open={openSystem}
@@ -85,7 +96,6 @@ export default function Sidebar() {
           <NavItem to="/app/database" icon={<CloudUpload size={18} />} label="Импорт" active={isActive("/app/database")} />
         </Section>
 
-        {/* INFO */}
         <Section
           title="Справочники"
           open={openInfo}
@@ -96,7 +106,6 @@ export default function Sidebar() {
           <NavItem to="/app/MyCategories" icon={<Folder size={18} />} label="Мои статьи" active={isActive("/app/MyCategories")} />
           <NavItem to="/app/MyProjects" icon={<Folder size={18} />} label="Мои проекты" active={isActive("/app/MyProjects")} />
         </Section>
-
       </div>
 
       {/* LOGOUT */}
@@ -112,6 +121,63 @@ export default function Sidebar() {
         </button>
       </div>
     </div>
+  );
+
+  return (
+    <>
+      {/* ───── DESKTOP: обычный фиксированный сайдбар ───── */}
+      <div className="hidden md:flex fixed left-0 top-0 h-screen w-[270px] flex-col 
+        bg-gradient-to-b from-[#0b1220] via-[#0f172a] to-[#020617] 
+        border-r border-white/10 backdrop-blur-xl shadow-2xl z-50">
+        {sidebarContent}
+      </div>
+
+      {/* ───── MOBILE: верхняя панель с бургером ───── */}
+      <div className="md:hidden fixed top-0 left-0 right-0 z-50 flex items-center justify-between
+        px-4 py-3 bg-[#0b1220] border-b border-white/10 shadow-lg">
+        <span className="text-lg font-bold bg-gradient-to-r from-blue-400 to-indigo-500 bg-clip-text text-transparent">
+          Finlab
+        </span>
+        <button
+          onClick={() => setMobileOpen(true)}
+          className="text-white/70 hover:text-white transition p-1"
+        >
+          <Menu size={24} />
+        </button>
+      </div>
+
+      {/* ───── MOBILE: затемнение фона ───── */}
+      <AnimatePresence>
+        {mobileOpen && (
+          <motion.div
+            key="backdrop"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => setMobileOpen(false)}
+            className="md:hidden fixed inset-0 bg-black/60 z-40 backdrop-blur-sm"
+          />
+        )}
+      </AnimatePresence>
+
+      {/* ───── MOBILE: выдвижной сайдбар ───── */}
+      <AnimatePresence>
+        {mobileOpen && (
+          <motion.div
+            key="mobile-sidebar"
+            initial={{ x: "-100%" }}
+            animate={{ x: 0 }}
+            exit={{ x: "-100%" }}
+            transition={{ type: "spring", damping: 25, stiffness: 200 }}
+            className="md:hidden fixed left-0 top-0 h-screen w-[270px] flex flex-col
+              bg-gradient-to-b from-[#0b1220] via-[#0f172a] to-[#020617]
+              border-r border-white/10 shadow-2xl z-50"
+          >
+            {sidebarContent}
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </>
   );
 }
 
