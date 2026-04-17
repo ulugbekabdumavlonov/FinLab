@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { auth, db } from "../firebase";
-import { store } from "../useAppStore";
+import { store } from "./useAppStore";
 import {
   collection,
   addDoc,
