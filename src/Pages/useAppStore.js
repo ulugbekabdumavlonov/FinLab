@@ -19,7 +19,7 @@
 
 import { useState, useEffect } from "react";
 import { collection, getDocs } from "firebase/firestore";
-import { auth, db } from "./firebase"; // ← поправь путь если нужно
+import { auth, db } from "../firebase"; // ← поправь путь если нужно
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 const userCol = (name) => collection(db, "users", auth.currentUser.uid, name);
