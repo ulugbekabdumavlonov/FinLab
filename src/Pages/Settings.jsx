@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { auth, db } from "../firebase";
 import { doc, getDoc, setDoc } from "firebase/firestore";
 import {
@@ -10,91 +10,98 @@ import {
 
 // ─── Firestore helpers ────────────────────────────────────────────────────────
 const userRef = () => doc(db, "users", auth.currentUser?.uid);
+
+// Простой in-memory кэш — данные грузятся один раз
+let _cache = null;
+let _cachePromise = null;
+
 async function loadUserData() {
-  const snap = await getDoc(userRef());
-  return snap.exists() ? snap.data() : {};
+  if (_cache) return _cache;
+  if (_cachePromise) return _cachePromise;
+  _cachePromise = getDoc(userRef()).then(snap => {
+    _cache = snap.exists() ? snap.data() : {};
+    _cachePromise = null;
+    return _cache;
+  });
+  return _cachePromise;
 }
+
 async function saveUserData(data) {
   await setDoc(userRef(), data, { merge: true });
+  // Обновляем кэш после сохранения
+  _cache = _cache ? { ..._cache, ...data } : data;
 }
 
-// ─── Styles ───────────────────────────────────────────────────────────────────
-const css = `
-  @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=DM+Mono&display=swap');
+// ─── Shared styles ────────────────────────────────────────────────────────────
+const s = {
+  page:     { maxWidth: 700, padding: "2rem 1rem", fontFamily: "'DM Sans', -apple-system, sans-serif", color: "#0F172A" },
+  h1:       { fontSize: 22, fontWeight: 600, color: "#0F172A", margin: 0 },
+  subtitle: { fontSize: 13, color: "#64748B", marginTop: 3 },
+  secLabel: { fontSize: 10.5, fontWeight: 600, letterSpacing: "0.1em", textTransform: "uppercase", color: "#94A3B8", marginBottom: 8 },
+  section:  { marginBottom: "1.75rem" },
+  card:     { background: "#fff", border: "1px solid #E2E8F0", borderRadius: 14, overflow: "hidden" },
+  cardBody: { padding: "1.4rem" },
+  g2:       { display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.9rem", marginBottom: "0.9rem" },
+  g1:       { marginBottom: "0.9rem" },
+  divider:  { border: "none", borderTop: "1px solid #E2E8F0", margin: "1.2rem 0" },
+  saveRow:  { display: "flex", justifyContent: "flex-end", gap: 8, paddingTop: "1.2rem", borderTop: "1px solid #E2E8F0", marginTop: "1.2rem" },
+  hint:     { fontSize: 11, color: "#94A3B8", marginTop: 3 },
+  label:    { fontSize: 11.5, fontWeight: 500, color: "#64748B", display: "block", marginBottom: 4 },
+};
 
-  .settings-page * { box-sizing: border-box; }
-
-  .settings-page {
-    --accent: #2563EB;
-    --accent-light: #EFF6FF;
-    --accent-mid: #BFDBFE;
-    --text: #0F172A;
-    --text2: #64748B;
-    --text3: #94A3B8;
-    --border: #E2E8F0;
-    --border2: #CBD5E1;
-    --bg: #F8FAFC;
-    --card: #fff;
-    --surface: #F1F5F9;
-    --red: #DC2626;
-    --red-bg: #FEF2F2;
-    font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
-    background: var(--bg);
-    color: var(--text);
-    max-width: 700px;
-    padding: 2rem 1rem;
-  }
-
-  .settings-page label {
-    font-size: 11.5px;
-    font-weight: 500;
-    color: var(--text2);
-    display: block;
-    margin-bottom: 4px;
-  }
-
-  .settings-page input,
-  .settings-page select {
-    font-family: 'DM Sans', sans-serif;
-    font-size: 13.5px;
-    padding: 9px 12px;
-    width: 100%;
-    border: 1px solid var(--border2);
-    border-radius: 9px;
-    background: var(--card);
-    color: var(--text);
-    outline: none;
-    transition: border-color 0.15s, box-shadow 0.15s;
-  }
-
-  .settings-page input:focus {
-    border-color: var(--accent);
-    box-shadow: 0 0 0 3px rgba(37,99,235,0.1);
-  }
-
-  @keyframes fadeUp {
-    from { opacity: 0; transform: translateY(10px); }
-    to   { opacity: 1; transform: translateY(0); }
+// ─── Skeleton ─────────────────────────────────────────────────────────────────
+const skeletonKeyframes = `
+  @keyframes shimmer {
+    0%   { background-position: -400px 0; }
+    100% { background-position:  400px 0; }
   }
 `;
 
-// ─── Shared primitives ────────────────────────────────────────────────────────
-const s = {
-  page:       { maxWidth: 700, padding: "2rem 1rem", fontFamily: "'DM Sans', -apple-system, sans-serif", color: "#0F172A" },
-  h1:         { fontSize: 22, fontWeight: 600, color: "#0F172A", margin: 0 },
-  subtitle:   { fontSize: 13, color: "#64748B", marginTop: 3 },
-  secLabel:   { fontSize: 10.5, fontWeight: 600, letterSpacing: "0.1em", textTransform: "uppercase", color: "#94A3B8", marginBottom: 8 },
-  section:    { marginBottom: "1.75rem" },
-  card:       { background: "#fff", border: "1px solid #E2E8F0", borderRadius: 14, overflow: "hidden" },
-  cardBody:   { padding: "1.4rem" },
-  g2:         { display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.9rem", marginBottom: "0.9rem" },
-  g1:         { marginBottom: "0.9rem" },
-  divider:    { border: "none", borderTop: "1px solid #E2E8F0", margin: "1.2rem 0" },
-  saveRow:    { display: "flex", justifyContent: "flex-end", gap: 8, paddingTop: "1.2rem", borderTop: "1px solid #E2E8F0", marginTop: "1.2rem" },
-  hint:       { fontSize: 11, color: "#94A3B8", marginTop: 3 },
-  label:      { fontSize: 11.5, fontWeight: 500, color: "#64748B", display: "block", marginBottom: 4 },
-};
+function Skeleton({ width = "100%", height = 36, style = {} }) {
+  return (
+    <>
+      <style>{skeletonKeyframes}</style>
+      <div
+        style={{
+          width,
+          height,
+          borderRadius: 9,
+          background: "linear-gradient(90deg, #F1F5F9 25%, #E2E8F0 50%, #F1F5F9 75%)",
+          backgroundSize: "800px 100%",
+          animation: "shimmer 1.4s infinite linear",
+          ...style,
+        }}
+      />
+    </>
+  );
+}
 
+function SectionSkeleton() {
+  return (
+    <div style={s.section}>
+      <Skeleton width={80} height={12} style={{ marginBottom: 10, borderRadius: 4 }} />
+      <div style={s.card}>
+        <div style={s.cardBody}>
+          <div style={s.g2}>
+            <Skeleton height={36} />
+            <Skeleton height={36} />
+          </div>
+          <Skeleton height={36} style={{ marginBottom: "0.9rem" }} />
+          <div style={s.g2}>
+            <Skeleton height={36} />
+            <Skeleton height={36} />
+          </div>
+          <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, paddingTop: "1.2rem", borderTop: "1px solid #E2E8F0", marginTop: "1.2rem" }}>
+            <Skeleton width={90} height={34} />
+            <Skeleton width={110} height={34} />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Shared primitives ────────────────────────────────────────────────────────
 function Lbl({ children }) {
   return <label style={s.label}>{children}</label>;
 }
@@ -141,7 +148,7 @@ function BtnGhost({ children, onClick }) {
   );
 }
 
-function BtnPrimary({ children, onClick, disabled, label }) {
+function BtnPrimary({ children, onClick, disabled }) {
   return (
     <button
       onClick={onClick}
@@ -181,20 +188,7 @@ function CustomSelect({ options, value, onChange }) {
       <div
         tabIndex={0}
         onClick={() => setOpen(o => !o)}
-        style={{
-          fontFamily: "'DM Sans', sans-serif",
-          fontSize: 13.5,
-          padding: "9px 36px 9px 12px",
-          border: `1px solid ${open ? "#2563EB" : "#CBD5E1"}`,
-          borderRadius: 9,
-          background: "#fff",
-          color: "#0F172A",
-          cursor: "pointer",
-          userSelect: "none",
-          boxShadow: open ? "0 0 0 3px rgba(37,99,235,0.1)" : "none",
-          transition: "border-color 0.15s",
-          position: "relative",
-        }}
+        style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 13.5, padding: "9px 36px 9px 12px", border: `1px solid ${open ? "#2563EB" : "#CBD5E1"}`, borderRadius: 9, background: "#fff", color: "#0F172A", cursor: "pointer", userSelect: "none", boxShadow: open ? "0 0 0 3px rgba(37,99,235,0.1)" : "none", transition: "border-color 0.15s", position: "relative" }}
       >
         {value}
         <span style={{ position: "absolute", right: 10, top: "50%", transform: `translateY(-50%) rotate(${open ? "180deg" : "0deg"})`, color: "#94A3B8", fontSize: 11, transition: "transform 0.2s", pointerEvents: "none" }}>▾</span>
@@ -205,17 +199,7 @@ function CustomSelect({ options, value, onChange }) {
             <div
               key={opt}
               onClick={() => { onChange(opt); setOpen(false); }}
-              style={{
-                padding: "9px 12px",
-                fontSize: 13,
-                cursor: "pointer",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-                color: "#0F172A",
-                background: opt === value ? "#EFF6FF" : "transparent",
-                fontWeight: opt === value ? 500 : 400,
-              }}
+              style={{ padding: "9px 12px", fontSize: 13, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "space-between", color: "#0F172A", background: opt === value ? "#EFF6FF" : "transparent", fontWeight: opt === value ? 500 : 400 }}
               onMouseEnter={e => { if (opt !== value) e.currentTarget.style.background = "#F8FAFC"; }}
               onMouseLeave={e => { e.currentTarget.style.background = opt === value ? "#EFF6FF" : "transparent"; }}
             >
@@ -251,9 +235,9 @@ function Toggle({ on, onChange }) {
   );
 }
 
-function ToggleRow({ label, desc, on, onChange }) {
+function ToggleRow({ label, desc, on, onChange, last }) {
   return (
-    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0.8rem 0", borderBottom: "1px solid #E2E8F0", gap: 12 }}>
+    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0.8rem 0", borderBottom: last ? "none" : "1px solid #E2E8F0", gap: 12 }}>
       <div>
         <div style={{ fontSize: 13.5, fontWeight: 500 }}>{label}</div>
         {desc && <div style={{ fontSize: 12, color: "#64748B", marginTop: 2 }}>{desc}</div>}
@@ -265,12 +249,12 @@ function ToggleRow({ label, desc, on, onChange }) {
 
 // ─── Currency Pills ───────────────────────────────────────────────────────────
 const CURRENCIES = [
-  { symbol: "$",     code: "USD", name: "US Dollar" },
-  { symbol: "€",     code: "EUR", name: "Euro" },
-  { symbol: "£",     code: "GBP", name: "British Pound" },
-  { symbol: "¥",     code: "JPY", name: "Japanese Yen" },
-  { symbol: "₸",     code: "KZT", name: "Kazakhstani Tenge" },
-  { symbol: "so'm",  code: "UZS", name: "Uzbek Som" },
+  { symbol: "$",    code: "USD", name: "US Dollar" },
+  { symbol: "€",    code: "EUR", name: "Euro" },
+  { symbol: "£",    code: "GBP", name: "British Pound" },
+  { symbol: "¥",    code: "JPY", name: "Japanese Yen" },
+  { symbol: "₸",    code: "KZT", name: "Kazakhstani Tenge" },
+  { symbol: "so'm", code: "UZS", name: "Uzbek Som" },
 ];
 
 function CurrencyPills({ value, onChange }) {
@@ -280,18 +264,7 @@ function CurrencyPills({ value, onChange }) {
         <div
           key={c.code}
           onClick={() => onChange(c.code)}
-          style={{
-            display: "flex", alignItems: "center", gap: 7,
-            padding: "7px 13px",
-            border: `1px solid ${value === c.code ? "#2563EB" : "#CBD5E1"}`,
-            borderRadius: 8,
-            cursor: "pointer",
-            fontSize: 13,
-            background: value === c.code ? "#EFF6FF" : "transparent",
-            color: value === c.code ? "#2563EB" : "#0F172A",
-            fontWeight: value === c.code ? 500 : 400,
-            transition: "all 0.15s",
-          }}
+          style={{ display: "flex", alignItems: "center", gap: 7, padding: "7px 13px", border: `1px solid ${value === c.code ? "#2563EB" : "#CBD5E1"}`, borderRadius: 8, cursor: "pointer", fontSize: 13, background: value === c.code ? "#EFF6FF" : "transparent", color: value === c.code ? "#2563EB" : "#0F172A", fontWeight: value === c.code ? 500 : 400, transition: "all 0.15s" }}
         >
           <span style={{ fontFamily: "'DM Mono', monospace", fontSize: c.symbol.length > 2 ? 11 : 13, fontWeight: 600 }}>{c.symbol}</span>
           <span>{c.code}</span>
@@ -302,20 +275,16 @@ function CurrencyPills({ value, onChange }) {
 }
 
 // ─── PROFILE ──────────────────────────────────────────────────────────────────
-function ProfileSection() {
-  const [form, setForm] = useState({ firstName: "", lastName: "", email: "", role: "", phone: "" });
+function ProfileSection({ data }) {
+  const [form, setForm] = useState({
+    firstName: data.firstName || "",
+    lastName:  data.lastName  || "",
+    email:     data.email     || auth.currentUser?.email || "",
+    role:      data.role      || "",
+    phone:     data.phone     || "",
+  });
   const [loading, setLoading] = useState(false);
-  const [status, setStatus] = useState(null);
-
-  useEffect(() => {
-    loadUserData().then(data => setForm({
-      firstName: data.firstName || "",
-      lastName:  data.lastName  || "",
-      email:     data.email     || auth.currentUser?.email || "",
-      role:      data.role      || "",
-      phone:     data.phone     || "",
-    }));
-  }, []);
+  const [status, setStatus]   = useState(null);
 
   const handleSave = async () => {
     setLoading(true); setStatus(null);
@@ -347,7 +316,6 @@ function ProfileSection() {
             Изменить фото
           </button>
         </div>
-
         <div style={s.g2}>
           <div><Lbl>Имя</Lbl><Inp type="text" {...f("firstName")} /></div>
           <div><Lbl>Фамилия</Lbl><Inp type="text" {...f("lastName")} /></div>
@@ -368,17 +336,18 @@ function ProfileSection() {
 }
 
 // ─── COMPANY ──────────────────────────────────────────────────────────────────
-function BusinessSection() {
-  const [form, setForm] = useState({ businessName: "", industry: "IT", companySize: "11–50", businessEmail: "", taxId: "", address: "" });
+function BusinessSection({ data }) {
+  const b = data.business || {};
+  const [form, setForm] = useState({
+    businessName:  b.businessName  || "",
+    industry:      b.industry      || "IT",
+    companySize:   b.companySize   || "11–50",
+    businessEmail: b.businessEmail || "",
+    taxId:         b.taxId         || "",
+    address:       b.address       || "",
+  });
   const [loading, setLoading] = useState(false);
-  const [status, setStatus] = useState(null);
-
-  useEffect(() => {
-    loadUserData().then(data => {
-      const b = data.business || {};
-      setForm({ businessName: b.businessName || "", industry: b.industry || "IT", companySize: b.companySize || "11–50", businessEmail: b.businessEmail || "", taxId: b.taxId || "", address: b.address || "" });
-    });
-  }, []);
+  const [status, setStatus]   = useState(null);
 
   const handleSave = async () => {
     setLoading(true); setStatus(null);
@@ -395,14 +364,8 @@ function BusinessSection() {
       <div style={s.card}><div style={s.cardBody}>
         <div style={s.g1}><Lbl>Название компании</Lbl><Inp type="text" {...f("businessName")} placeholder="Название вашей компании" /></div>
         <div style={s.g2}>
-          <div>
-            <Lbl>Индустрия</Lbl>
-            <CustomSelect options={["IT","E-commerce","Финансы","Здравоохранение","Другое"]} value={form.industry} onChange={v => setForm({ ...form, industry: v })} />
-          </div>
-          <div>
-            <Lbl>Кол-во сотрудников</Lbl>
-            <CustomSelect options={["1–10","11–50","51–200","200+"]} value={form.companySize} onChange={v => setForm({ ...form, companySize: v })} />
-          </div>
+          <div><Lbl>Индустрия</Lbl><CustomSelect options={["IT","E-commerce","Финансы","Здравоохранение","Другое"]} value={form.industry} onChange={v => setForm({ ...form, industry: v })} /></div>
+          <div><Lbl>Кол-во сотрудников</Lbl><CustomSelect options={["1–10","11–50","51–200","200+"]} value={form.companySize} onChange={v => setForm({ ...form, companySize: v })} /></div>
         </div>
         <div style={s.g2}>
           <div><Lbl>Почта компании</Lbl><Inp type="email" {...f("businessEmail")} placeholder="company@gmail.com" /></div>
@@ -416,18 +379,14 @@ function BusinessSection() {
 }
 
 // ─── SECURITY ─────────────────────────────────────────────────────────────────
-function SecuritySection() {
+function SecuritySection({ data }) {
   const [currentPass, setCurrentPass] = useState("");
-  const [newPass, setNewPass] = useState("");
+  const [newPass, setNewPass]         = useState("");
   const [confirmPass, setConfirmPass] = useState("");
-  const [totp, setTotp] = useState(true);
-  const [sms, setSms] = useState(false);
+  const [totp, setTotp] = useState(data.twoFactor?.totp ?? true);
+  const [sms,  setSms]  = useState(data.twoFactor?.sms  ?? false);
   const [loading, setLoading] = useState(false);
-  const [status, setStatus] = useState(null);
-
-  useEffect(() => {
-    loadUserData().then(data => { setTotp(data.twoFactor?.totp ?? true); setSms(data.twoFactor?.sms ?? false); });
-  }, []);
+  const [status, setStatus]   = useState(null);
 
   const handleSave = async () => {
     if (!currentPass) return setStatus({ type: "error", message: "Введите текущий пароль" });
@@ -457,9 +416,7 @@ function SecuritySection() {
         <Divider />
         <div style={{ fontSize: 13, fontWeight: 500, marginBottom: "0.75rem" }}>Двухфакторная аутентификация</div>
         <ToggleRow label="Authenticator app (TOTP)" desc="Google Authenticator или Authy" on={totp} onChange={setTotp} />
-        <div style={{ borderBottom: "none" }}>
-          <ToggleRow label="SMS подтверждение" desc="Получить код SMS сообщением" on={sms} onChange={setSms} />
-        </div>
+        <ToggleRow label="SMS подтверждение" desc="Получить код SMS сообщением" on={sms} onChange={setSms} last />
         <SaveRow onSave={handleSave} loading={loading} status={status} saveLabel="Поменять пароль" />
       </div></div>
     </div>
@@ -467,17 +424,17 @@ function SecuritySection() {
 }
 
 // ─── CURRENCY & LOCALE ────────────────────────────────────────────────────────
-function CurrencySection() {
-  const [form, setForm] = useState({ currency: "USD", dateFormat: "DD/MM/YYYY", timezone: "UTC+5 — Ташкент", numberFormat: "1,000.00", fiscalYear: "Январь" });
+function CurrencySection({ data }) {
+  const l = data.locale || {};
+  const [form, setForm] = useState({
+    currency:     l.currency     || "USD",
+    dateFormat:   l.dateFormat   || "DD/MM/YYYY",
+    timezone:     l.timezone     || "UTC+5 — Ташкент",
+    numberFormat: l.numberFormat || "1,000.00",
+    fiscalYear:   l.fiscalYear   || "Январь",
+  });
   const [loading, setLoading] = useState(false);
-  const [status, setStatus] = useState(null);
-
-  useEffect(() => {
-    loadUserData().then(data => {
-      const l = data.locale || {};
-      setForm({ currency: l.currency || "USD", dateFormat: l.dateFormat || "DD/MM/YYYY", timezone: l.timezone || "UTC+5 — Ташкент", numberFormat: l.numberFormat || "1,000.00", fiscalYear: l.fiscalYear || "Январь" });
-    });
-  }, []);
+  const [status, setStatus]   = useState(null);
 
   const handleSave = async () => {
     setLoading(true); setStatus(null);
@@ -510,11 +467,9 @@ function CurrencySection() {
 }
 
 // ─── NOTIFICATIONS ────────────────────────────────────────────────────────────
-function NotificationsSection() {
+function NotificationsSection({ data }) {
   const defaults = { invoicePaid: true, weeklySummary: true, failedPayment: true, newMember: false, productUpdates: false };
-  const [notifs, setNotifs] = useState(defaults);
-
-  useEffect(() => { loadUserData().then(data => { if (data.notifications) setNotifs({ ...defaults, ...data.notifications }); }); }, []);
+  const [notifs, setNotifs] = useState({ ...defaults, ...(data.notifications || {}) });
 
   const toggle = async key => {
     const updated = { ...notifs, [key]: !notifs[key] };
@@ -523,11 +478,11 @@ function NotificationsSection() {
   };
 
   const items = [
-    { key: "invoicePaid",    label: "Подписка оплачена",        desc: "Оповещать при оплате подписки" },
-    { key: "weeklySummary",  label: "Еженедельная сводка",      desc: "Ключевые метрики по понедельникам" },
-    { key: "failedPayment",  label: "Неудачные платежи",        desc: "Оповещать при сбое платежа" },
-    { key: "newMember",      label: "Новый пользователь",       desc: "Принятие приглашения" },
-    { key: "productUpdates", label: "Обновления продукта",      desc: "Новые функции и улучшения" },
+    { key: "invoicePaid",    label: "Подписка оплачена",   desc: "Оповещать при оплате подписки" },
+    { key: "weeklySummary",  label: "Еженедельная сводка", desc: "Ключевые метрики по понедельникам" },
+    { key: "failedPayment",  label: "Неудачные платежи",   desc: "Оповещать при сбое платежа" },
+    { key: "newMember",      label: "Новый пользователь",  desc: "Принятие приглашения" },
+    { key: "productUpdates", label: "Обновления продукта", desc: "Новые функции и улучшения" },
   ];
 
   return (
@@ -535,9 +490,7 @@ function NotificationsSection() {
       <div style={s.secLabel}>Уведомления</div>
       <div style={s.card}><div style={s.cardBody}>
         {items.map(({ key, label, desc }, i) => (
-          <div key={key} style={{ borderBottom: i < items.length - 1 ? "1px solid #E2E8F0" : "none" }}>
-            <ToggleRow label={label} desc={desc} on={notifs[key]} onChange={() => toggle(key)} />
-          </div>
+          <ToggleRow key={key} label={label} desc={desc} on={notifs[key]} onChange={() => toggle(key)} last={i === items.length - 1} />
         ))}
       </div></div>
     </div>
@@ -545,10 +498,8 @@ function NotificationsSection() {
 }
 
 // ─── BILLING ──────────────────────────────────────────────────────────────────
-function BillingSection() {
-  const [billing, setBilling] = useState({ plan: "Pro", price: "1 200 000 UZS", renewal: "—", seats: "—", apiCalls: "—", storage: "—" });
-
-  useEffect(() => { loadUserData().then(data => { if (data.billing) setBilling(prev => ({ ...prev, ...data.billing })); }); }, []);
+function BillingSection({ data }) {
+  const billing = { plan: "Pro", price: "1 200 000 UZS", renewal: "—", seats: "—", apiCalls: "—", storage: "—", ...(data.billing || {}) };
 
   return (
     <div style={s.section}>
@@ -580,9 +531,9 @@ function BillingSection() {
 // ─── DANGER ───────────────────────────────────────────────────────────────────
 function DangerSection() {
   const rows = [
-    { title: "Экспорт всех данных",      desc: "Скачать архив данных",                          btn: "Экспорт",    danger: false },
-    { title: "Отменить подписку",         desc: "Данные сохранятся в течение 30 дней",           btn: "Отключить",  danger: true  },
-    { title: "Удалить аккаунт полностью", desc: "Удалить все данные навсегда",                   btn: "Удалить",    danger: true  },
+    { title: "Экспорт всех данных",      desc: "Скачать архив данных",              btn: "Экспорт",   danger: false },
+    { title: "Отменить подписку",         desc: "Данные сохранятся в течение 30 дней", btn: "Отключить", danger: true  },
+    { title: "Удалить аккаунт полностью", desc: "Удалить все данные навсегда",       btn: "Удалить",   danger: true  },
   ];
 
   return (
@@ -608,19 +559,51 @@ function DangerSection() {
 
 // ─── ROOT ─────────────────────────────────────────────────────────────────────
 export default function Settings() {
+  const [userData, setUserData] = useState(null);
+  const [error, setError]       = useState(null);
+
+  useEffect(() => {
+    // Один запрос для всей страницы
+    loadUserData()
+      .then(setUserData)
+      .catch(err => setError(err.message));
+  }, []);
+
+  if (error) {
+    return (
+      <div style={s.page}>
+        <p style={{ fontSize: 13, color: "#DC2626", background: "#FEF2F2", padding: "10px 14px", borderRadius: 8 }}>
+          Ошибка загрузки: {error}
+        </p>
+      </div>
+    );
+  }
+
   return (
     <div style={s.page}>
       <div style={{ marginBottom: "1.75rem" }}>
         <h1 style={s.h1}>Настройки</h1>
         <p style={s.subtitle}>Управляйте аккаунтом и рабочим пространством</p>
       </div>
-      <ProfileSection />
-      <BusinessSection />
-      <SecuritySection />
-      <CurrencySection />
-      <NotificationsSection />
-      <BillingSection />
-      <DangerSection />
+
+      {/* Пока данные грузятся — показываем skeleton */}
+      {!userData ? (
+        <>
+          <SectionSkeleton />
+          <SectionSkeleton />
+          <SectionSkeleton />
+        </>
+      ) : (
+        <>
+          <ProfileSection       data={userData} />
+          <BusinessSection      data={userData} />
+          <SecuritySection      data={userData} />
+          <CurrencySection      data={userData} />
+          <NotificationsSection data={userData} />
+          <BillingSection       data={userData} />
+          <DangerSection />
+        </>
+      )}
     </div>
   );
 }
