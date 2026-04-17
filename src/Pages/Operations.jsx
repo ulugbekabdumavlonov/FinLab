@@ -9,7 +9,7 @@ import {
   increment, serverTimestamp, collection,
 } from "firebase/firestore";
 import { auth, db } from "../firebase";
-import { useAppStore, store } from "../useAppStore"; // ← STORE
+import { useAppStore, store } from "./useAppStore"; // ← STORE
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 const userCol = (name) => collection(db, "users", auth.currentUser.uid, name);
