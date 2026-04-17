@@ -1,10 +1,6 @@
 import { useState, useEffect } from "react";
-import { auth, db } from "../firebase"; // adjust path to your firebase config
-import {
-  doc,
-  getDoc,
-  setDoc,
-} from "firebase/firestore";
+import { auth, db } from "../firebase";
+import { doc, getDoc, setDoc } from "firebase/firestore";
 import {
   updateEmail,
   updatePassword,
@@ -14,381 +10,412 @@ import {
 
 // ─── Firestore helpers ────────────────────────────────────────────────────────
 const userRef = () => doc(db, "users", auth.currentUser?.uid);
-
 async function loadUserData() {
   const snap = await getDoc(userRef());
   return snap.exists() ? snap.data() : {};
 }
-
 async function saveUserData(data) {
   await setDoc(userRef(), data, { merge: true });
 }
 
-// ─── Inline styles ────────────────────────────────────────────────────────────
+// ─── Styles ───────────────────────────────────────────────────────────────────
+const css = `
+  @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=DM+Mono&display=swap');
+
+  .settings-page * { box-sizing: border-box; }
+
+  .settings-page {
+    --accent: #2563EB;
+    --accent-light: #EFF6FF;
+    --accent-mid: #BFDBFE;
+    --text: #0F172A;
+    --text2: #64748B;
+    --text3: #94A3B8;
+    --border: #E2E8F0;
+    --border2: #CBD5E1;
+    --bg: #F8FAFC;
+    --card: #fff;
+    --surface: #F1F5F9;
+    --red: #DC2626;
+    --red-bg: #FEF2F2;
+    font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    max-width: 700px;
+    padding: 2rem 1rem;
+  }
+
+  .settings-page label {
+    font-size: 11.5px;
+    font-weight: 500;
+    color: var(--text2);
+    display: block;
+    margin-bottom: 4px;
+  }
+
+  .settings-page input,
+  .settings-page select {
+    font-family: 'DM Sans', sans-serif;
+    font-size: 13.5px;
+    padding: 9px 12px;
+    width: 100%;
+    border: 1px solid var(--border2);
+    border-radius: 9px;
+    background: var(--card);
+    color: var(--text);
+    outline: none;
+    transition: border-color 0.15s, box-shadow 0.15s;
+  }
+
+  .settings-page input:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(37,99,235,0.1);
+  }
+
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(10px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+`;
+
+// ─── Shared primitives ────────────────────────────────────────────────────────
 const s = {
-  page: {
-    maxWidth: 720,
-    padding: "2rem 1rem",
-    fontFamily: "'DM Sans', sans-serif",
-    color: "var(--color-text-primary, #111)",
-  },
-  pageTitle: { fontSize: 22, fontWeight: 500, letterSpacing: -0.5, margin: 0 },
-  pageSubtitle: { fontSize: 14, color: "var(--color-text-secondary, #666)", marginTop: 4 },
-  sectionLabel: {
-    fontSize: 10,
-    fontWeight: 500,
-    letterSpacing: "0.08em",
-    textTransform: "uppercase",
-    color: "var(--color-text-tertiary, #999)",
-    marginBottom: 10,
-  },
-  card: {
-    background: "var(--color-background-primary, #fff)",
-    border: "0.5px solid var(--color-border-tertiary, rgba(0,0,0,0.12))",
-    borderRadius: 12,
-    overflow: "hidden",
-    marginBottom: 8,
-  },
-  cardBody: { padding: "1.5rem" },
-  divider: {
-    border: "none",
-    borderTop: "0.5px solid var(--color-border-tertiary, rgba(0,0,0,0.1))",
-    margin: "1.5rem 0",
-  },
-  section: { marginBottom: "2rem" },
+  page:       { maxWidth: 700, padding: "2rem 1rem", fontFamily: "'DM Sans', -apple-system, sans-serif", color: "#0F172A" },
+  h1:         { fontSize: 22, fontWeight: 600, color: "#0F172A", margin: 0 },
+  subtitle:   { fontSize: 13, color: "#64748B", marginTop: 3 },
+  secLabel:   { fontSize: 10.5, fontWeight: 600, letterSpacing: "0.1em", textTransform: "uppercase", color: "#94A3B8", marginBottom: 8 },
+  section:    { marginBottom: "1.75rem" },
+  card:       { background: "#fff", border: "1px solid #E2E8F0", borderRadius: 14, overflow: "hidden" },
+  cardBody:   { padding: "1.4rem" },
+  g2:         { display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.9rem", marginBottom: "0.9rem" },
+  g1:         { marginBottom: "0.9rem" },
+  divider:    { border: "none", borderTop: "1px solid #E2E8F0", margin: "1.2rem 0" },
+  saveRow:    { display: "flex", justifyContent: "flex-end", gap: 8, paddingTop: "1.2rem", borderTop: "1px solid #E2E8F0", marginTop: "1.2rem" },
+  hint:       { fontSize: 11, color: "#94A3B8", marginTop: 3 },
+  label:      { fontSize: 11.5, fontWeight: 500, color: "#64748B", display: "block", marginBottom: 4 },
 };
 
-// ─── Shared UI primitives ─────────────────────────────────────────────────────
-function Label({ children }) {
-  return (
-    <label style={{ fontSize: 12, fontWeight: 500, color: "var(--color-text-secondary, #666)", display: "block", marginBottom: 5 }}>
-      {children}
-    </label>
-  );
+function Lbl({ children }) {
+  return <label style={s.label}>{children}</label>;
 }
-
 function Hint({ children }) {
-  return <p style={{ fontSize: 11, color: "var(--color-text-tertiary, #999)", marginTop: 3 }}>{children}</p>;
+  return <p style={s.hint}>{children}</p>;
+}
+function Divider() {
+  return <hr style={s.divider} />;
 }
 
-function Input({ style, ...props }) {
+function Inp({ style, ...props }) {
   return (
     <input
       style={{
         fontFamily: "'DM Sans', sans-serif",
         fontSize: 13.5,
         padding: "9px 12px",
-        border: "0.5px solid var(--color-border-secondary, rgba(0,0,0,0.2))",
-        borderRadius: 8,
-        background: "var(--color-background-primary, #fff)",
-        color: "var(--color-text-primary, #111)",
-        outline: "none",
         width: "100%",
+        border: "1px solid #CBD5E1",
+        borderRadius: 9,
+        background: "#fff",
+        color: "#0F172A",
+        outline: "none",
+        transition: "border-color 0.15s, box-shadow 0.15s",
         ...style,
       }}
+      onFocus={e => { e.target.style.borderColor = "#2563EB"; e.target.style.boxShadow = "0 0 0 3px rgba(37,99,235,0.1)"; }}
+      onBlur={e => { e.target.style.borderColor = "#CBD5E1"; e.target.style.boxShadow = "none"; }}
       {...props}
     />
   );
 }
 
-function Select({ children, ...props }) {
+function BtnGhost({ children, onClick }) {
   return (
-    <select
-      style={{
-        fontFamily: "'DM Sans', sans-serif",
-        fontSize: 13.5,
-        padding: "9px 12px",
-        border: "0.5px solid var(--color-border-secondary, rgba(0,0,0,0.2))",
-        borderRadius: 8,
-        background: "var(--color-background-primary, #fff)",
-        color: "var(--color-text-primary, #111)",
-        outline: "none",
-        width: "100%",
-        cursor: "pointer",
-      }}
-      {...props}
+    <button
+      onClick={onClick}
+      style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 13, padding: "8px 18px", borderRadius: 9, cursor: "pointer", fontWeight: 500, background: "transparent", color: "#64748B", border: "1px solid #CBD5E1", transition: "background 0.15s" }}
+      onMouseEnter={e => e.target.style.background = "#F1F5F9"}
+      onMouseLeave={e => e.target.style.background = "transparent"}
     >
       {children}
-    </select>
+    </button>
   );
 }
 
-function FieldGrid({ children, full }) {
+function BtnPrimary({ children, onClick, disabled, label }) {
   return (
-    <div style={{ display: "grid", gridTemplateColumns: full ? "1fr" : "1fr 1fr", gap: "1rem", marginBottom: "1rem" }}>
+    <button
+      onClick={onClick}
+      disabled={disabled}
+      style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 13, padding: "8px 18px", borderRadius: 9, cursor: disabled ? "not-allowed" : "pointer", fontWeight: 500, background: "#2563EB", color: "#fff", border: "none", opacity: disabled ? 0.7 : 1, transition: "background 0.15s" }}
+      onMouseEnter={e => { if (!disabled) e.target.style.background = "#1D4ED8"; }}
+      onMouseLeave={e => e.target.style.background = "#2563EB"}
+    >
       {children}
-    </div>
+    </button>
   );
 }
 
-function FieldGroup({ label, hint, children }) {
+function SaveRow({ onSave, loading, status, saveLabel = "Сохранить" }) {
   return (
     <div>
-      {label && <Label>{label}</Label>}
-      {children}
-      {hint && <Hint>{hint}</Hint>}
-    </div>
-  );
-}
-
-function StatusMessage({ status }) {
-  if (!status) return null;
-  const isError = status.type === "error";
-  return (
-    <p style={{
-      fontSize: 12,
-      marginTop: 8,
-      color: isError ? "var(--color-text-danger, #c0392b)" : "#0F6E56",
-      background: isError ? "var(--color-background-danger, #fdf0ef)" : "#E1F5EE",
-      padding: "6px 12px",
-      borderRadius: 6,
-    }}>
-      {status.message}
-    </p>
-  );
-}
-
-function SaveRow({ onSave, saveLabel = "Сохранить", loading, status }) {
-  return (
-    <div>
-      <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, paddingTop: "1.25rem", borderTop: "0.5px solid var(--color-border-tertiary, rgba(0,0,0,0.1))", marginTop: "1.25rem" }}>
-        <button style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 13, padding: "9px 16px", background: "transparent", color: "var(--color-text-secondary, #666)", border: "0.5px solid var(--color-border-secondary, rgba(0,0,0,0.2))", borderRadius: 8, cursor: "pointer" }}>
-          Сбросить
-        </button>
-        <button
-          onClick={onSave}
-          disabled={loading}
-          style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 13, fontWeight: 500, padding: "9px 22px", background: status?.type === "success" ? "#0F6E56" : "#1D9E75", color: "#fff", border: "none", borderRadius: 8, cursor: loading ? "not-allowed" : "pointer", opacity: loading ? 0.7 : 1, transition: "background 0.2s" }}
-        >
+      <div style={s.saveRow}>
+        <BtnGhost>Сбросить</BtnGhost>
+        <BtnPrimary onClick={onSave} disabled={loading}>
           {loading ? "Сохранение…" : status?.type === "success" ? "Сохранено ✓" : saveLabel}
-        </button>
+        </BtnPrimary>
       </div>
-      <StatusMessage status={status} />
+      {status && (
+        <p style={{ fontSize: 12, marginTop: 8, color: status.type === "error" ? "#DC2626" : "#059669", background: status.type === "error" ? "#FEF2F2" : "#D1FAE5", padding: "6px 12px", borderRadius: 6 }}>
+          {status.message}
+        </p>
+      )}
     </div>
   );
 }
 
-function Toggle({ on, onChange }) {
+// ─── Custom Select ────────────────────────────────────────────────────────────
+function CustomSelect({ options, value, onChange }) {
+  const [open, setOpen] = useState(false);
   return (
-    <div onClick={() => onChange(!on)} style={{ width: 36, height: 20, borderRadius: 10, background: on ? "#1D9E75" : "var(--color-border-secondary, rgba(0,0,0,0.2))", position: "relative", cursor: "pointer", flexShrink: 0, transition: "background 0.2s" }}>
-      <div style={{ position: "absolute", top: 2, left: on ? 18 : 2, width: 16, height: 16, borderRadius: "50%", background: "#fff", transition: "left 0.2s" }} />
-    </div>
-  );
-}
-
-function ToggleRow({ label, desc, on, onChange }) {
-  return (
-    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0.85rem 0", borderBottom: "0.5px solid var(--color-border-tertiary, rgba(0,0,0,0.1))", gap: 12 }}>
-      <div>
-        <div style={{ fontSize: 13.5, fontWeight: 500 }}>{label}</div>
-        {desc && <div style={{ fontSize: 12, color: "var(--color-text-secondary, #666)", marginTop: 2 }}>{desc}</div>}
+    <div style={{ position: "relative" }} onBlur={() => setTimeout(() => setOpen(false), 150)}>
+      <div
+        tabIndex={0}
+        onClick={() => setOpen(o => !o)}
+        style={{
+          fontFamily: "'DM Sans', sans-serif",
+          fontSize: 13.5,
+          padding: "9px 36px 9px 12px",
+          border: `1px solid ${open ? "#2563EB" : "#CBD5E1"}`,
+          borderRadius: 9,
+          background: "#fff",
+          color: "#0F172A",
+          cursor: "pointer",
+          userSelect: "none",
+          boxShadow: open ? "0 0 0 3px rgba(37,99,235,0.1)" : "none",
+          transition: "border-color 0.15s",
+          position: "relative",
+        }}
+      >
+        {value}
+        <span style={{ position: "absolute", right: 10, top: "50%", transform: `translateY(-50%) rotate(${open ? "180deg" : "0deg"})`, color: "#94A3B8", fontSize: 11, transition: "transform 0.2s", pointerEvents: "none" }}>▾</span>
       </div>
-      <Toggle on={on} onChange={onChange} />
+      {open && (
+        <div style={{ position: "absolute", top: "calc(100% + 4px)", left: 0, right: 0, background: "#fff", border: "1px solid #CBD5E1", borderRadius: 10, boxShadow: "0 8px 24px rgba(0,0,0,0.1)", zIndex: 100, overflow: "hidden" }}>
+          {options.map(opt => (
+            <div
+              key={opt}
+              onClick={() => { onChange(opt); setOpen(false); }}
+              style={{
+                padding: "9px 12px",
+                fontSize: 13,
+                cursor: "pointer",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                color: "#0F172A",
+                background: opt === value ? "#EFF6FF" : "transparent",
+                fontWeight: opt === value ? 500 : 400,
+              }}
+              onMouseEnter={e => { if (opt !== value) e.currentTarget.style.background = "#F8FAFC"; }}
+              onMouseLeave={e => { e.currentTarget.style.background = opt === value ? "#EFF6FF" : "transparent"; }}
+            >
+              {opt}
+              {opt === value && <span style={{ fontSize: 12, color: "#2563EB" }}>✓</span>}
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
 
+// ─── Password Input ───────────────────────────────────────────────────────────
 function PasswordInput({ placeholder, value, onChange }) {
   const [show, setShow] = useState(false);
   return (
     <div style={{ position: "relative" }}>
-      <Input type={show ? "text" : "password"} placeholder={placeholder} value={value} onChange={onChange} style={{ paddingRight: 38 }} />
-      <button onClick={() => setShow(!show)} style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", color: "var(--color-text-tertiary, #999)", fontSize: 13, padding: 2 }}>
+      <Inp type={show ? "text" : "password"} placeholder={placeholder} value={value} onChange={onChange} style={{ paddingRight: 38 }} />
+      <button onClick={() => setShow(s => !s)} style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", color: "#94A3B8", fontSize: 13, padding: 2 }}>
         {show ? "🙈" : "👁"}
       </button>
     </div>
   );
 }
 
-function CurrencyOption({ symbol, code, name, selected, onSelect }) {
+// ─── Toggle ───────────────────────────────────────────────────────────────────
+function Toggle({ on, onChange }) {
   return (
-    <div onClick={onSelect} style={{ border: selected ? "1.5px solid #1D9E75" : "0.5px solid var(--color-border-secondary, rgba(0,0,0,0.2))", borderRadius: 8, padding: "9px 11px", cursor: "pointer", display: "flex", alignItems: "center", gap: 8, background: selected ? "#E1F5EE" : "transparent", transition: "all 0.15s" }}>
-      <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 13, fontWeight: 500, color: selected ? "#1D9E75" : "var(--color-text-secondary, #666)", width: 28, flexShrink: 0 }}>{symbol}</span>
-      <div>
-        <div style={{ fontSize: 13, fontWeight: 500, color: selected ? "#0F6E56" : "var(--color-text-primary, #111)" }}>{code}</div>
-        <div style={{ fontSize: 11, color: "var(--color-text-tertiary, #999)" }}>{name}</div>
-      </div>
+    <div onClick={() => onChange(!on)} style={{ width: 38, height: 21, borderRadius: 11, background: on ? "#2563EB" : "#CBD5E1", position: "relative", cursor: "pointer", flexShrink: 0, transition: "background 0.2s" }}>
+      <div style={{ position: "absolute", top: 2.5, left: on ? 19 : 3, width: 16, height: 16, borderRadius: "50%", background: "#fff", transition: "left 0.2s", boxShadow: "0 1px 3px rgba(0,0,0,0.2)" }} />
     </div>
   );
 }
 
+function ToggleRow({ label, desc, on, onChange }) {
+  return (
+    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0.8rem 0", borderBottom: "1px solid #E2E8F0", gap: 12 }}>
+      <div>
+        <div style={{ fontSize: 13.5, fontWeight: 500 }}>{label}</div>
+        {desc && <div style={{ fontSize: 12, color: "#64748B", marginTop: 2 }}>{desc}</div>}
+      </div>
+      <Toggle on={on} onChange={onChange} />
+    </div>
+  );
+}
+
+// ─── Currency Pills ───────────────────────────────────────────────────────────
 const CURRENCIES = [
-  { symbol: "$",    code: "USD", name: "US Dollar" },
-  { symbol: "€",    code: "EUR", name: "Euro" },
-  { symbol: "£",    code: "GBP", name: "British Pound" },
-  { symbol: "¥",    code: "JPY", name: "Japanese Yen" },
-  { symbol: "₸",    code: "KZT", name: "Kazakhstani Tenge" },
-  { symbol: "so'm", code: "UZS", name: "Uzbek Som" },
+  { symbol: "$",     code: "USD", name: "US Dollar" },
+  { symbol: "€",     code: "EUR", name: "Euro" },
+  { symbol: "£",     code: "GBP", name: "British Pound" },
+  { symbol: "¥",     code: "JPY", name: "Japanese Yen" },
+  { symbol: "₸",     code: "KZT", name: "Kazakhstani Tenge" },
+  { symbol: "so'm",  code: "UZS", name: "Uzbek Som" },
 ];
 
-// ─── PROFILE SECTION ──────────────────────────────────────────────────────────
+function CurrencyPills({ value, onChange }) {
+  return (
+    <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+      {CURRENCIES.map(c => (
+        <div
+          key={c.code}
+          onClick={() => onChange(c.code)}
+          style={{
+            display: "flex", alignItems: "center", gap: 7,
+            padding: "7px 13px",
+            border: `1px solid ${value === c.code ? "#2563EB" : "#CBD5E1"}`,
+            borderRadius: 8,
+            cursor: "pointer",
+            fontSize: 13,
+            background: value === c.code ? "#EFF6FF" : "transparent",
+            color: value === c.code ? "#2563EB" : "#0F172A",
+            fontWeight: value === c.code ? 500 : 400,
+            transition: "all 0.15s",
+          }}
+        >
+          <span style={{ fontFamily: "'DM Mono', monospace", fontSize: c.symbol.length > 2 ? 11 : 13, fontWeight: 600 }}>{c.symbol}</span>
+          <span>{c.code}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ─── PROFILE ──────────────────────────────────────────────────────────────────
 function ProfileSection() {
   const [form, setForm] = useState({ firstName: "", lastName: "", email: "", role: "", phone: "" });
   const [loading, setLoading] = useState(false);
   const [status, setStatus] = useState(null);
 
   useEffect(() => {
-    loadUserData().then((data) => {
-      setForm({
-        firstName: data.firstName || "",
-        lastName:  data.lastName  || "",
-        email:     data.email     || auth.currentUser?.email || "",
-        role:      data.role      || "",
-        phone:     data.phone     || "",
-      });
-    });
+    loadUserData().then(data => setForm({
+      firstName: data.firstName || "",
+      lastName:  data.lastName  || "",
+      email:     data.email     || auth.currentUser?.email || "",
+      role:      data.role      || "",
+      phone:     data.phone     || "",
+    }));
   }, []);
 
   const handleSave = async () => {
-    setLoading(true);
-    setStatus(null);
+    setLoading(true); setStatus(null);
     try {
-      // Update email in Firebase Auth if it changed
-      if (form.email !== auth.currentUser.email) {
-        await updateEmail(auth.currentUser, form.email);
-      }
-      await saveUserData({
-        firstName: form.firstName,
-        lastName:  form.lastName,
-        email:     form.email,
-        role:      form.role,
-        phone:     form.phone,
-      });
-      setStatus({ type: "success", message: "Profile saved successfully." });
+      if (form.email !== auth.currentUser.email) await updateEmail(auth.currentUser, form.email);
+      await saveUserData({ firstName: form.firstName, lastName: form.lastName, email: form.email, role: form.role, phone: form.phone });
+      setStatus({ type: "success", message: "Профиль сохранён." });
     } catch (err) {
       setStatus({ type: "error", message: err.message });
-    } finally {
-      setLoading(false);
-    }
+    } finally { setLoading(false); }
   };
 
   const initials = ((form.firstName[0] || "") + (form.lastName[0] || "")).toUpperCase() || "??";
+  const f = key => ({ value: form[key], onChange: e => setForm({ ...form, [key]: e.target.value }) });
 
   return (
     <div style={s.section}>
-      <div style={s.sectionLabel}>Мой профил</div>
-      <div style={s.card}>
-        <div style={s.cardBody}>
-          <div style={{ display: "flex", alignItems: "center", gap: "1rem", marginBottom: "1.5rem", paddingBottom: "1.5rem", borderBottom: "0.5px solid var(--color-border-tertiary, rgba(0,0,0,0.1))" }}>
-            <div style={{ width: 52, height: 52, borderRadius: "50%", background: "#E1F5EE", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 17, fontWeight: 500, color: "#0F6E56", flexShrink: 0 }}>
-              {initials}
-            </div>
-            <div style={{ flex: 1 }}>
-              <div style={{ fontSize: 15, fontWeight: 500 }}>{(form.firstName + " " + form.lastName).trim() || "Your name"}</div>
-              <div style={{ fontSize: 12, color: "var(--color-text-secondary, #666)", marginTop: 2 }}>Владелец профиля</div>
-            </div>
-            <button style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 12.5, padding: "7px 14px", border: "0.5px solid var(--color-border-secondary, rgba(0,0,0,0.2))", borderRadius: 8, background: "transparent", color: "var(--color-text-secondary, #666)", cursor: "pointer" }}>
-              Изменить фото
-            </button>
+      <div style={s.secLabel}>Мой профиль</div>
+      <div style={s.card}><div style={s.cardBody}>
+        <div style={{ display: "flex", alignItems: "center", gap: "1rem", marginBottom: "1.4rem", paddingBottom: "1.4rem", borderBottom: "1px solid #E2E8F0" }}>
+          <div style={{ width: 50, height: 50, borderRadius: "50%", background: "#EFF6FF", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, fontWeight: 600, color: "#2563EB", flexShrink: 0 }}>
+            {initials}
           </div>
-
-          <FieldGrid>
-            <FieldGroup label="Имя">
-              <Input type="text" value={form.firstName} onChange={(e) => setForm({ ...form, firstName: e.target.value })} />
-            </FieldGroup>
-            <FieldGroup label="Фамилия">
-              <Input type="text" value={form.lastName} onChange={(e) => setForm({ ...form, lastName: e.target.value })} />
-            </FieldGroup>
-          </FieldGrid>
-          <FieldGrid full>
-            <FieldGroup label="Адрес электроной почты" hint="Используется для логина и рассылок">
-              <Input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
-            </FieldGroup>
-          </FieldGrid>
-          <FieldGrid>
-            <FieldGroup label="Должность">
-              <Input type="text" value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value })} placeholder="Финансовый менеджер" />
-            </FieldGroup>
-            <FieldGroup label="Номер телефона">
-              <Input type="tel" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} placeholder="+998 90 000 00 00" />
-            </FieldGroup>
-          </FieldGrid>
-
-          <SaveRow onSave={handleSave} loading={loading} status={status} />
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: 14.5, fontWeight: 600 }}>{(form.firstName + " " + form.lastName).trim() || "Ваше имя"}</div>
+            <div style={{ fontSize: 12, color: "#64748B", marginTop: 2 }}>Владелец профиля</div>
+          </div>
+          <button style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 12, padding: "6px 13px", border: "1px solid #E2E8F0", borderRadius: 8, background: "transparent", color: "#64748B", cursor: "pointer" }}>
+            Изменить фото
+          </button>
         </div>
-      </div>
+
+        <div style={s.g2}>
+          <div><Lbl>Имя</Lbl><Inp type="text" {...f("firstName")} /></div>
+          <div><Lbl>Фамилия</Lbl><Inp type="text" {...f("lastName")} /></div>
+        </div>
+        <div style={s.g1}>
+          <Lbl>Электронная почта</Lbl>
+          <Inp type="email" {...f("email")} />
+          <Hint>Используется для входа и рассылок</Hint>
+        </div>
+        <div style={s.g2}>
+          <div><Lbl>Должность</Lbl><Inp type="text" {...f("role")} placeholder="Финансовый менеджер" /></div>
+          <div><Lbl>Телефон</Lbl><Inp type="tel" {...f("phone")} placeholder="+998 90 000 00 00" /></div>
+        </div>
+        <SaveRow onSave={handleSave} loading={loading} status={status} />
+      </div></div>
     </div>
   );
 }
 
-// ─── BUSINESS SECTION ─────────────────────────────────────────────────────────
+// ─── COMPANY ──────────────────────────────────────────────────────────────────
 function BusinessSection() {
-  const [form, setForm] = useState({ businessName: "", industry: "SaaS / Software", companySize: "11–50 employees", businessEmail: "", taxId: "", address: "" });
+  const [form, setForm] = useState({ businessName: "", industry: "IT", companySize: "11–50", businessEmail: "", taxId: "", address: "" });
   const [loading, setLoading] = useState(false);
   const [status, setStatus] = useState(null);
 
   useEffect(() => {
-    loadUserData().then((data) => {
+    loadUserData().then(data => {
       const b = data.business || {};
-      setForm({
-        businessName:  b.businessName  || "",
-        industry:      b.industry      || "SaaS / Software",
-        companySize:   b.companySize   || "11–50 employees",
-        businessEmail: b.businessEmail || "",
-        taxId:         b.taxId         || "",
-        address:       b.address       || "",
-      });
+      setForm({ businessName: b.businessName || "", industry: b.industry || "IT", companySize: b.companySize || "11–50", businessEmail: b.businessEmail || "", taxId: b.taxId || "", address: b.address || "" });
     });
   }, []);
 
   const handleSave = async () => {
-    setLoading(true);
-    setStatus(null);
-    try {
-      await saveUserData({ business: form });
-      setStatus({ type: "success", message: "Business info saved." });
-    } catch (err) {
-      setStatus({ type: "error", message: err.message });
-    } finally {
-      setLoading(false);
-    }
+    setLoading(true); setStatus(null);
+    try { await saveUserData({ business: form }); setStatus({ type: "success", message: "Данные компании сохранены." }); }
+    catch (err) { setStatus({ type: "error", message: err.message }); }
+    finally { setLoading(false); }
   };
 
-  const f = (key) => ({ value: form[key], onChange: (e) => setForm({ ...form, [key]: e.target.value }) });
+  const f = key => ({ value: form[key], onChange: e => setForm({ ...form, [key]: e.target.value }) });
 
   return (
     <div style={s.section}>
-      <div style={s.sectionLabel}>Компания</div>
-      <div style={s.card}>
-        <div style={s.cardBody}>
-          <FieldGrid full>
-            <FieldGroup label="Business name">
-              <Input type="text" {...f("businessName")} placeholder="Название вашей компании" />
-            </FieldGroup>
-          </FieldGrid>
-          <FieldGrid>
-            <FieldGroup label="Индустрия">
-              <Select {...f("industry")}>
-                {["IT", "E-commerce", "Финанси", "Здравохранение", "Другое"].map((o) => <option key={o}>{o}</option>)}
-              </Select>
-            </FieldGroup>
-            <FieldGroup label="Кол-во сотрудников">
-              <Select {...f("companySize")}>
-                {["1–10 Сотрудников", "11–50 Сотрудников", "51–200 Сотрудников", "200+ Сотрудников"].map((o) => <option key={o}>{o}</option>)}
-              </Select>
-            </FieldGroup>
-          </FieldGrid>
-          <FieldGrid>
-            <FieldGroup label="Почта компании">
-              <Input type="email" {...f("businessEmail")} placeholder="FinLab@gmail.com" />
-            </FieldGroup>
-            <FieldGroup label="НДС плателщик">
-              <Input type="text" {...f("taxId")} placeholder="e.g. UZ123456789" style={{ fontFamily: "'DM Mono', monospace", fontSize: 12.5 }} />
-            </FieldGroup>
-          </FieldGrid>
-          <FieldGrid full>
-            <FieldGroup label="Адресс компании">
-              <Input type="text" {...f("address")} placeholder="Улица, Город, Страна" />
-            </FieldGroup>
-          </FieldGrid>
-          <SaveRow onSave={handleSave} loading={loading} status={status} />
+      <div style={s.secLabel}>Компания</div>
+      <div style={s.card}><div style={s.cardBody}>
+        <div style={s.g1}><Lbl>Название компании</Lbl><Inp type="text" {...f("businessName")} placeholder="Название вашей компании" /></div>
+        <div style={s.g2}>
+          <div>
+            <Lbl>Индустрия</Lbl>
+            <CustomSelect options={["IT","E-commerce","Финансы","Здравоохранение","Другое"]} value={form.industry} onChange={v => setForm({ ...form, industry: v })} />
+          </div>
+          <div>
+            <Lbl>Кол-во сотрудников</Lbl>
+            <CustomSelect options={["1–10","11–50","51–200","200+"]} value={form.companySize} onChange={v => setForm({ ...form, companySize: v })} />
+          </div>
         </div>
-      </div>
+        <div style={s.g2}>
+          <div><Lbl>Почта компании</Lbl><Inp type="email" {...f("businessEmail")} placeholder="company@gmail.com" /></div>
+          <div><Lbl>ИНН / НДС</Lbl><Inp type="text" {...f("taxId")} placeholder="UZ123456789" style={{ fontFamily: "'DM Mono', monospace", fontSize: 12.5 }} /></div>
+        </div>
+        <div style={s.g1}><Lbl>Адрес</Lbl><Inp type="text" {...f("address")} placeholder="Улица, Город, Страна" /></div>
+        <SaveRow onSave={handleSave} loading={loading} status={status} />
+      </div></div>
     </div>
   );
 }
 
-// ─── SECURITY SECTION ─────────────────────────────────────────────────────────
+// ─── SECURITY ─────────────────────────────────────────────────────────────────
 function SecuritySection() {
   const [currentPass, setCurrentPass] = useState("");
   const [newPass, setNewPass] = useState("");
@@ -399,281 +426,193 @@ function SecuritySection() {
   const [status, setStatus] = useState(null);
 
   useEffect(() => {
-    loadUserData().then((data) => {
-      setTotp(data.twoFactor?.totp ?? true);
-      setSms(data.twoFactor?.sms ?? false);
-    });
+    loadUserData().then(data => { setTotp(data.twoFactor?.totp ?? true); setSms(data.twoFactor?.sms ?? false); });
   }, []);
 
   const handleSave = async () => {
     if (!currentPass) return setStatus({ type: "error", message: "Введите текущий пароль" });
     if (newPass !== confirmPass) return setStatus({ type: "error", message: "Новые пароли не совпадают" });
     if (newPass && newPass.length < 8) return setStatus({ type: "error", message: "Пароль должен быть не менее 8 символов" });
-
-    setLoading(true);
-    setStatus(null);
+    setLoading(true); setStatus(null);
     try {
-      // Re-authenticate before sensitive changes
       const credential = EmailAuthProvider.credential(auth.currentUser.email, currentPass);
       await reauthenticateWithCredential(auth.currentUser, credential);
-
       if (newPass) await updatePassword(auth.currentUser, newPass);
-
       await saveUserData({ twoFactor: { totp, sms } });
-
-      setCurrentPass("");
-      setNewPass("");
-      setConfirmPass("");
+      setCurrentPass(""); setNewPass(""); setConfirmPass("");
       setStatus({ type: "success", message: "Настройки безопасности сохранены" });
-    } catch (err) {
-      setStatus({ type: "error", message: err.message });
-    } finally {
-      setLoading(false);
-    }
+    } catch (err) { setStatus({ type: "error", message: err.message }); }
+    finally { setLoading(false); }
   };
 
   return (
     <div style={s.section}>
-      <div style={s.sectionLabel}>Безопасность</div>
-      <div style={s.card}>
-        <div style={s.cardBody}>
-          <FieldGrid full>
-            <FieldGroup label="Текущий пароль">
-              <PasswordInput placeholder="Введите текущий пароль" value={currentPass} onChange={(e) => setCurrentPass(e.target.value)} />
-            </FieldGroup>
-          </FieldGrid>
-          <FieldGrid>
-            <FieldGroup label="Новый пароль">
-              <PasswordInput placeholder="Мин. 8 значение" value={newPass} onChange={(e) => setNewPass(e.target.value)} />
-            </FieldGroup>
-            <FieldGroup label="Подтвердите новый пароль">
-              <PasswordInput placeholder="Повторите новый пароль" value={confirmPass} onChange={(e) => setConfirmPass(e.target.value)} />
-            </FieldGroup>
-          </FieldGrid>
-
-          <hr style={s.divider} />
-          <div style={{ fontSize: 13, fontWeight: 500, marginBottom: "0.75rem" }}>Two-factor authentication</div>
-          <ToggleRow label="Authenticator app (TOTP)" desc="Google Authenticator или Authy" on={totp} onChange={setTotp} />
-          <ToggleRow label="SMS подтверждение код" desc="Получить код смс сообщением" on={sms} onChange={setSms} />
-
-          <SaveRow onSave={handleSave} loading={loading} status={status} saveLabel="Поменять пароль" />
+      <div style={s.secLabel}>Безопасность</div>
+      <div style={s.card}><div style={s.cardBody}>
+        <div style={s.g1}><Lbl>Текущий пароль</Lbl><PasswordInput placeholder="Введите текущий пароль" value={currentPass} onChange={e => setCurrentPass(e.target.value)} /></div>
+        <div style={s.g2}>
+          <div><Lbl>Новый пароль</Lbl><PasswordInput placeholder="Мин. 8 символов" value={newPass} onChange={e => setNewPass(e.target.value)} /></div>
+          <div><Lbl>Подтвердите пароль</Lbl><PasswordInput placeholder="Повторите пароль" value={confirmPass} onChange={e => setConfirmPass(e.target.value)} /></div>
         </div>
-      </div>
+        <Divider />
+        <div style={{ fontSize: 13, fontWeight: 500, marginBottom: "0.75rem" }}>Двухфакторная аутентификация</div>
+        <ToggleRow label="Authenticator app (TOTP)" desc="Google Authenticator или Authy" on={totp} onChange={setTotp} />
+        <div style={{ borderBottom: "none" }}>
+          <ToggleRow label="SMS подтверждение" desc="Получить код SMS сообщением" on={sms} onChange={setSms} />
+        </div>
+        <SaveRow onSave={handleSave} loading={loading} status={status} saveLabel="Поменять пароль" />
+      </div></div>
     </div>
   );
 }
 
-// ─── CURRENCY & LOCALE SECTION ────────────────────────────────────────────────
+// ─── CURRENCY & LOCALE ────────────────────────────────────────────────────────
 function CurrencySection() {
-  const [form, setForm] = useState({ currency: "USD", dateFormat: "DD/MM/YYYY", timezone: "UTC+5", numberFormat: "dot", fiscalYear: "January" });
+  const [form, setForm] = useState({ currency: "USD", dateFormat: "DD/MM/YYYY", timezone: "UTC+5 — Ташкент", numberFormat: "1,000.00", fiscalYear: "Январь" });
   const [loading, setLoading] = useState(false);
   const [status, setStatus] = useState(null);
 
   useEffect(() => {
-    loadUserData().then((data) => {
+    loadUserData().then(data => {
       const l = data.locale || {};
-      setForm({
-        currency:     l.currency     || "USD",
-        dateFormat:   l.dateFormat   || "DD/MM/YYYY",
-        timezone:     l.timezone     || "UTC+5",
-        numberFormat: l.numberFormat || "dot",
-        fiscalYear:   l.fiscalYear   || "January",
-      });
+      setForm({ currency: l.currency || "USD", dateFormat: l.dateFormat || "DD/MM/YYYY", timezone: l.timezone || "UTC+5 — Ташкент", numberFormat: l.numberFormat || "1,000.00", fiscalYear: l.fiscalYear || "Январь" });
     });
   }, []);
 
   const handleSave = async () => {
-    setLoading(true);
-    setStatus(null);
-    try {
-      await saveUserData({ locale: form });
-      setStatus({ type: "success", message: "Изменения сохранены" });
-    } catch (err) {
-      setStatus({ type: "error", message: err.message });
-    } finally {
-      setLoading(false);
-    }
+    setLoading(true); setStatus(null);
+    try { await saveUserData({ locale: form }); setStatus({ type: "success", message: "Изменения сохранены" }); }
+    catch (err) { setStatus({ type: "error", message: err.message }); }
+    finally { setLoading(false); }
   };
-
-  const f = (key) => ({ value: form[key], onChange: (e) => setForm({ ...form, [key]: e.target.value }) });
 
   return (
     <div style={s.section}>
-      <div style={s.sectionLabel}>Валюта & Регион</div>
-      <div style={s.card}>
-        <div style={s.cardBody}>
-          <div style={{ fontSize: 13, fontWeight: 500, marginBottom: "0.75rem" }}>Основная валюта</div>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "0.6rem" }}>
-            {CURRENCIES.map((c) => (
-              <CurrencyOption key={c.code} {...c} selected={form.currency === c.code} onSelect={() => setForm({ ...form, currency: c.code })} />
-            ))}
-          </div>
-
-          <hr style={s.divider} />
-
-          <FieldGrid>
-            <FieldGroup label="Формат даты">
-              <Select {...f("dateFormat")}>
-                <option>MM/DD/YYYY</option>
-                <option>DD/MM/YYYY</option>
-                <option>YYYY-MM-DD</option>
-              </Select>
-            </FieldGroup>
-            <FieldGroup label="Часовой пояс">
-              <Select {...f("timezone")}>
-                <option value="UTC+5">UTC+5 — Ташкент</option>
-                <option value="UTC+0">UTC+0 — Лондон</option>
-                <option value="UTC-5">UTC-5 — Нью-Йорк</option>
-                <option value="UTC+3">UTC+3 — Москва</option>
-              </Select>
-            </FieldGroup>
-          </FieldGrid>
-          <FieldGrid>
-            <FieldGroup label="Формат чисел">
-              <Select {...f("numberFormat")}>
-                <option value="dot">1,000.00</option>
-                <option value="comma">1.000,00</option>
-                <option value="space">1 000,00</option>
-              </Select>
-            </FieldGroup>
-            <FieldGroup label="Начало финансового года">
-              <Select {...f("fiscalYear")}>
-                {["Январь", "Апрель", "Июль", "Октябрь"].map((m) => <option key={m}>{m}</option>)}
-              </Select>
-            </FieldGroup>
-          </FieldGrid>
-
-          <SaveRow onSave={handleSave} loading={loading} status={status} saveLabel="Сохранить" />
+      <div style={s.secLabel}>Валюта & Регион</div>
+      <div style={s.card}><div style={s.cardBody}>
+        <Lbl>Основная валюта</Lbl>
+        <div style={{ marginBottom: "0.9rem" }}>
+          <CurrencyPills value={form.currency} onChange={v => setForm({ ...form, currency: v })} />
         </div>
-      </div>
+        <Divider />
+        <div style={s.g2}>
+          <div><Lbl>Формат даты</Lbl><CustomSelect options={["DD/MM/YYYY","MM/DD/YYYY","YYYY-MM-DD"]} value={form.dateFormat} onChange={v => setForm({ ...form, dateFormat: v })} /></div>
+          <div><Lbl>Часовой пояс</Lbl><CustomSelect options={["UTC+5 — Ташкент","UTC+0 — Лондон","UTC-5 — Нью-Йорк","UTC+3 — Москва"]} value={form.timezone} onChange={v => setForm({ ...form, timezone: v })} /></div>
+        </div>
+        <div style={s.g2}>
+          <div><Lbl>Формат чисел</Lbl><CustomSelect options={["1,000.00","1.000,00","1 000,00"]} value={form.numberFormat} onChange={v => setForm({ ...form, numberFormat: v })} /></div>
+          <div><Lbl>Начало фин. года</Lbl><CustomSelect options={["Январь","Апрель","Июль","Октябрь"]} value={form.fiscalYear} onChange={v => setForm({ ...form, fiscalYear: v })} /></div>
+        </div>
+        <SaveRow onSave={handleSave} loading={loading} status={status} />
+      </div></div>
     </div>
   );
 }
 
-// ─── NOTIFICATIONS SECTION ────────────────────────────────────────────────────
+// ─── NOTIFICATIONS ────────────────────────────────────────────────────────────
 function NotificationsSection() {
   const defaults = { invoicePaid: true, weeklySummary: true, failedPayment: true, newMember: false, productUpdates: false };
   const [notifs, setNotifs] = useState(defaults);
 
-  useEffect(() => {
-    loadUserData().then((data) => {
-      if (data.notifications) setNotifs({ ...defaults, ...data.notifications });
-    });
-  }, []);
+  useEffect(() => { loadUserData().then(data => { if (data.notifications) setNotifs({ ...defaults, ...data.notifications }); }); }, []);
 
-  // Auto-save on every toggle
-  const toggle = async (key) => {
+  const toggle = async key => {
     const updated = { ...notifs, [key]: !notifs[key] };
     setNotifs(updated);
     await saveUserData({ notifications: updated });
   };
 
   const items = [
-    { key: "invoicePaid",    label: "Подписка оплачена",               desc: "Оповещать при оплате подписки" },
-    { key: "weeklySummary",  label: "Еженедельная сводка",             desc: "Выручка, отток и ключевые метрики по понедельникам" },
-    { key: "failedPayment",  label: "Уведомление о неудачных платежах",      desc: "Оповещать при неудачном платеже или просроченной карте" },
-    { key: "newMember",      label: "Новый ползователь",      desc: "Подтверждение принятия приглашения" },
-    { key: "productUpdates", label: "Обновления продукты и журнал изменения", desc: "Новые функции и улучшения" },
+    { key: "invoicePaid",    label: "Подписка оплачена",        desc: "Оповещать при оплате подписки" },
+    { key: "weeklySummary",  label: "Еженедельная сводка",      desc: "Ключевые метрики по понедельникам" },
+    { key: "failedPayment",  label: "Неудачные платежи",        desc: "Оповещать при сбое платежа" },
+    { key: "newMember",      label: "Новый пользователь",       desc: "Принятие приглашения" },
+    { key: "productUpdates", label: "Обновления продукта",      desc: "Новые функции и улучшения" },
   ];
 
   return (
     <div style={s.section}>
-      <div style={s.sectionLabel}>Уведомления</div>
-      <div style={s.card}>
-        <div style={s.cardBody}>
-          {items.map(({ key, label, desc }) => (
-            <ToggleRow key={key} label={label} desc={desc} on={notifs[key]} onChange={() => toggle(key)} />
-          ))}
-        </div>
-      </div>
+      <div style={s.secLabel}>Уведомления</div>
+      <div style={s.card}><div style={s.cardBody}>
+        {items.map(({ key, label, desc }, i) => (
+          <div key={key} style={{ borderBottom: i < items.length - 1 ? "1px solid #E2E8F0" : "none" }}>
+            <ToggleRow label={label} desc={desc} on={notifs[key]} onChange={() => toggle(key)} />
+          </div>
+        ))}
+      </div></div>
     </div>
   );
 }
 
-// ─── BILLING SECTION (read-only, loaded from Firestore) ───────────────────────
+// ─── BILLING ──────────────────────────────────────────────────────────────────
 function BillingSection() {
   const [billing, setBilling] = useState({ plan: "Pro", price: "1 200 000 UZS", renewal: "—", seats: "—", apiCalls: "—", storage: "—" });
 
-  useEffect(() => {
-    loadUserData().then((data) => {
-      if (data.billing) setBilling((prev) => ({ ...prev, ...data.billing }));
-    });
-  }, []);
+  useEffect(() => { loadUserData().then(data => { if (data.billing) setBilling(prev => ({ ...prev, ...data.billing })); }); }, []);
 
   return (
     <div style={s.section}>
-      <div style={s.sectionLabel}>Подписка</div>
-      <div style={s.card}>
-        <div style={s.cardBody}>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "1rem" }}>
-            <div>
-              <div style={{ fontSize: 15, fontWeight: 500 }}>
-                {billing.plan} plan{" "}
-                <span style={{ display: "inline-block", fontSize: 11, padding: "2px 9px", background: "#FAEEDA", color: "#854F0B", borderRadius: 20, fontWeight: 500, marginLeft: 6, verticalAlign: "middle" }}>Active</span>
-              </div>
-              <div style={{ fontSize: 13, color: "var(--color-text-secondary, #666)", marginTop: 3 }}>
-                {billing.price} / месяц · Обновление {billing.renewal}
-              </div>
+      <div style={s.secLabel}>Подписка</div>
+      <div style={s.card}><div style={s.cardBody}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "1rem" }}>
+          <div>
+            <div style={{ fontSize: 14.5, fontWeight: 600 }}>
+              {billing.plan} plan{" "}
+              <span style={{ display: "inline-block", fontSize: 10.5, padding: "2px 9px", background: "#FEF3C7", color: "#92400E", borderRadius: 20, fontWeight: 500, marginLeft: 6, verticalAlign: "middle" }}>Active</span>
             </div>
-            <button style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 13, padding: "9px 16px", background: "transparent", color: "var(--color-text-secondary, #666)", border: "0.5px solid var(--color-border-secondary, rgba(0,0,0,0.2))", borderRadius: 8, cursor: "pointer" }}>
-              Управляь подпиской
-            </button>
+            <div style={{ fontSize: 12.5, color: "#64748B", marginTop: 3 }}>{billing.price} / месяц · Обновление {billing.renewal}</div>
           </div>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "0.75rem" }}>
-            {[
-              { val: billing.seats,    lbl: "Кол-во ползователей" },
-              { val: billing.apiCalls, lbl: "API запросы за месяц" },
-              { val: billing.storage,  lbl: "Объем хранилища: 50 ГБ" },
-            ].map(({ val, lbl }) => (
-              <div key={lbl} style={{ background: "var(--color-background-secondary, #f5f5f5)", borderRadius: 8, padding: "0.9rem 1rem" }}>
-                <div style={{ fontSize: 18, fontWeight: 500, letterSpacing: -0.5 }}>{val}</div>
-                <div style={{ fontSize: 11, color: "var(--color-text-secondary, #666)", marginTop: 3 }}>{lbl}</div>
-              </div>
-            ))}
-          </div>
+          <BtnGhost>Управлять</BtnGhost>
         </div>
-      </div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: "0.75rem" }}>
+          {[{ val: billing.seats, lbl: "Пользователей" }, { val: billing.apiCalls, lbl: "API запросов / мес" }, { val: billing.storage, lbl: "Хранилище" }].map(({ val, lbl }) => (
+            <div key={lbl} style={{ background: "#F1F5F9", borderRadius: 10, padding: "0.85rem 1rem" }}>
+              <div style={{ fontSize: 17, fontWeight: 600, letterSpacing: -0.5 }}>{val}</div>
+              <div style={{ fontSize: 11, color: "#64748B", marginTop: 2 }}>{lbl}</div>
+            </div>
+          ))}
+        </div>
+      </div></div>
     </div>
   );
 }
 
-// ─── DANGER SECTION ───────────────────────────────────────────────────────────
+// ─── DANGER ───────────────────────────────────────────────────────────────────
 function DangerSection() {
   const rows = [
-    { title: "Экспорт всех данных",            desc: "Скачать все данные",       btn: "Экспорт",         danger: false },
-    { title: "Отменить подписку",         desc: "Приостановить подписку — Данные будуть сохраняться в течение 30 дней",     btn: "Отключить",     danger: true  },
-    { title: "Удалить аккуант полностью", desc: "Удалить все данные",  btn: "Удалить", danger: true  },
+    { title: "Экспорт всех данных",      desc: "Скачать архив данных",                          btn: "Экспорт",    danger: false },
+    { title: "Отменить подписку",         desc: "Данные сохранятся в течение 30 дней",           btn: "Отключить",  danger: true  },
+    { title: "Удалить аккаунт полностью", desc: "Удалить все данные навсегда",                   btn: "Удалить",    danger: true  },
   ];
 
   return (
     <div style={s.section}>
-      <div style={s.sectionLabel}>Danger zone</div>
-      <div style={{ ...s.card, border: "0.5px solid var(--color-border-danger, #e74c3c)" }}>
-        <div style={s.cardBody}>
-          {rows.map(({ title, desc, btn, danger }, i) => (
-            <div key={title} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0.85rem 0", borderBottom: i < rows.length - 1 ? "0.5px solid var(--color-border-tertiary, rgba(0,0,0,0.1))" : "none", gap: 12 }}>
-              <div>
-                <div style={{ fontSize: 13.5, fontWeight: 500, color: danger ? "var(--color-text-danger, #c0392b)" : "var(--color-text-primary, #111)" }}>{title}</div>
-                <div style={{ fontSize: 12, color: "var(--color-text-secondary, #666)", marginTop: 2 }}>{desc}</div>
-              </div>
-              <button style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 12.5, padding: "7px 14px", border: danger ? "0.5px solid var(--color-border-danger, #e74c3c)" : "0.5px solid var(--color-border-secondary, rgba(0,0,0,0.2))", borderRadius: 8, background: "transparent", color: danger ? "var(--color-text-danger, #c0392b)" : "var(--color-text-secondary, #666)", cursor: "pointer", flexShrink: 0 }}>
-                {btn}
-              </button>
+      <div style={s.secLabel}>Danger zone</div>
+      <div style={{ ...s.card, border: "1px solid #FECACA" }}><div style={s.cardBody}>
+        {rows.map(({ title, desc, btn, danger }, i) => (
+          <div key={title} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0.8rem 0", borderBottom: i < rows.length - 1 ? "1px solid #E2E8F0" : "none", gap: 12 }}>
+            <div>
+              <div style={{ fontSize: 13.5, fontWeight: 500, color: danger ? "#DC2626" : "#0F172A" }}>{title}</div>
+              <div style={{ fontSize: 12, color: "#64748B", marginTop: 2 }}>{desc}</div>
             </div>
-          ))}
-        </div>
-      </div>
+            {danger
+              ? <button style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 12, padding: "6px 13px", border: "1px solid #FECACA", borderRadius: 8, background: "transparent", color: "#DC2626", cursor: "pointer" }}>{btn}</button>
+              : <BtnGhost>{btn}</BtnGhost>
+            }
+          </div>
+        ))}
+      </div></div>
     </div>
   );
 }
 
-// ─── ROOT EXPORT ──────────────────────────────────────────────────────────────
+// ─── ROOT ─────────────────────────────────────────────────────────────────────
 export default function Settings() {
   return (
     <div style={s.page}>
-      <div style={{ marginBottom: "2rem" }}>
-        <h1 style={s.pageTitle}>Настройки</h1>
-        <p style={s.pageSubtitle}>Управляйте своим аккаунтом, настройками и рабочим пространством</p>
+      <div style={{ marginBottom: "1.75rem" }}>
+        <h1 style={s.h1}>Настройки</h1>
+        <p style={s.subtitle}>Управляйте аккаунтом и рабочим пространством</p>
       </div>
       <ProfileSection />
       <BusinessSection />
