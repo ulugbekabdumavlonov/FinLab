@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { auth, db } from "../firebase";
+import { store } from "../useAppStore";
 import {
   collection,
   addDoc,
@@ -343,6 +344,7 @@ export default function ImportPage() {
       await updateDoc(userDoc("accounts", wallet.id), {
         balance: increment(total),
       });
+      await store.refresh();
 
       showToast(`Файл «${pendingFile.name}» загружен (${pendingFile.rows.length} операций)`);
       loadImported();
@@ -370,6 +372,8 @@ export default function ImportPage() {
           balance: increment(-total),
         });
       }
+
+      await store.refresh();
 
       setFileGroups((prev) => prev.filter((f) => f.fileName !== fileName));
       showToast("Файл удалён", "danger");
