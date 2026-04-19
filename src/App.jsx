@@ -14,7 +14,7 @@ import Operations from "./Pages/Operations";
 import Login from "./Pages/Login";
 import Register from "./Pages/Register";
 import MyWallet from "./Pages/MyWallet";
-import MyCompany from "./pages/MyCompany";
+import MyCompany from "./Pages/MyCompany";
 import PrivateRoute from "./Components/PrivateRoute";
 import MyCategories from "./Pages/MyCategories";
 import MyProjects from "./Pages/MyProjects";
