@@ -291,18 +291,6 @@ export default function Sidebar() {
             label="Импорт"
             active={isActive("/app/database")}
           />
-          <NavItem
-            to="/app/TeamPage"
-            icon={<CloudUpload size={18} />}
-            label="Пользователи"
-            active={isActive("/app/TeamPage")}
-          />
-          <NavItem
-            to="/app/InviteAcceptPage"
-            icon={<CloudUpload size={18} />}
-            label="Приглашение"
-            active={isActive("/app/InviteAcceptPage")}
-          />
         </Section>
 
         <Section
