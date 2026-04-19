@@ -33,18 +33,18 @@ function normalize(str) {
 // sign: +1 = revenue/positive, -1 = cost/deduction
 // computed: true = derived from formula, false = bucket of transactions
 const PL_LINES = [
-  { key: "revenue",     label: "1. Revenue",               indent: 0, bold: true,  computed: false, sign:  1 },
-  { key: "cogs",        label: "2. COGS",                  indent: 0, bold: true,  computed: false, sign: -1 },
-  { key: "cogs_direct", label: "2.1 Direct Costs",         indent: 1, bold: false, computed: false, sign: -1 },
-  { key: "cogs_var",    label: "2.2 Variable Costs",       indent: 1, bold: false, computed: false, sign: -1 },
-  { key: "gross",       label: "3. Gross Profit",          indent: 0, bold: true,  computed: true,  sign:  1 },
-  { key: "opex",        label: "4. OPEX",                  indent: 0, bold: true,  computed: false, sign: -1 },
+  { key: "revenue",     label: "1. Выручка",               indent: 0, bold: true,  computed: false, sign:  1 },
+  { key: "cogs",        label: "2. Производственные расходы",                  indent: 0, bold: true,  computed: false, sign: -1 },
+  { key: "cogs_direct", label: "2.1 Прямые постоянные расходы",         indent: 1, bold: false, computed: false, sign: -1 },
+  { key: "cogs_var",    label: "2.2 Переменные расходы",       indent: 1, bold: false, computed: false, sign: -1 },
+  { key: "gross",       label: "3. Валовая прибыль",          indent: 0, bold: true,  computed: true,  sign:  1 },
+  { key: "opex",        label: "4. Операционные расходы",                  indent: 0, bold: true,  computed: false, sign: -1 },
   { key: "ebitda",      label: "5. EBITDA",                indent: 0, bold: true,  computed: true,  sign:  1 },
-  { key: "da",          label: "6. Depreciation / Amort.", indent: 0, bold: false, computed: false, sign: -1 },
+  { key: "da",          label: "6. Амортизация", indent: 0, bold: false, computed: false, sign: -1 },
   { key: "ebit",        label: "7. EBIT",                  indent: 0, bold: true,  computed: true,  sign:  1 },
-  { key: "fin_result",  label: "8. Financial Result",      indent: 0, bold: false, computed: false, sign:  1 },
-  { key: "taxes",       label: "9. Taxes",                 indent: 0, bold: false, computed: false, sign: -1 },
-  { key: "net",         label: "10. Net Profit",           indent: 0, bold: true,  computed: true,  sign:  1 },
+  { key: "fin_result",  label: "8. Финансовые результаты",      indent: 0, bold: false, computed: false, sign:  1 },
+  { key: "taxes",       label: "9. Налоги",                 indent: 0, bold: false, computed: false, sign: -1 },
+  { key: "net",         label: "10. Чистая прибыль",           indent: 0, bold: true,  computed: true,  sign:  1 },
 ];
 
 // Computed line formulas (use absolute bucket values)
@@ -397,11 +397,6 @@ function CategoryMapper({ categories, mapping, onChange, isMobile }) {
               </div>
             );
           })}
-
-          <div style={{ padding: "10px 20px", background: C.surfaceAlt, borderTop: `1px solid ${C.border}`, fontSize: 11, color: C.inkLight }}>
-            Привязка автоматически сохраняется в Firestore →{" "}
-            <code style={{ fontFamily: "monospace" }}>users/{"{uid}"}/settings/pl_mapping</code>
-          </div>
         </div>
       )}
     </div>
