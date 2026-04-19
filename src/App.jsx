@@ -1,9 +1,6 @@
 import { BrowserRouter, Routes, Route } from "react-router-dom";
-
 import Layout from "./Components/Layout";
 import LandingPage from "./Pages/LandingPage";
-
-
 import Dashboard from "./Pages/Dashboard";
 import Cashflow from "./Pages/Cashflow";
 import PL from "./Pages/PL";
@@ -13,13 +10,13 @@ import Database from "./Pages/Database";
 import Operations from "./Pages/Operations";
 import Login from "./Pages/Login";
 import Register from "./Pages/Register";
-import MyWallet from "./Pages/MyWallet";
-import MyCompany from "./Pages/MyCompany";
+import MyWallet from "./pages/MyWallet";
+import MyCompany from "./pages/MyCompany";
 import PrivateRoute from "./Components/PrivateRoute";
 import MyCategories from "./Pages/MyCategories";
 import MyProjects from "./Pages/MyProjects";
-import Teampage from "./Pages/TeamPage";
-import InviteAcceptPage from "./Pages/InviteAcceptPage";
+import TeamPage from "./TeamPage";
+import InviteAcceptPage from "./InviteAcceptPage";
 
 function App() {
   return (
@@ -30,10 +27,13 @@ function App() {
         <Route path="/" element={<LandingPage />} />
 
         {/* 🔐 AUTH */}
-        <Route path="/login" element={<Login />} />
+        <Route path="/login"    element={<Login />} />
         <Route path="/register" element={<Register />} />
 
-        {/* 🔒 ПРИЛОЖЕНИЕ (ЗАЩИЩЕННОЕ) */}
+        {/* 📩 ИНВАЙТ — публичный маршрут, без авторизации */}
+        <Route path="/invite/:inviteId" element={<InviteAcceptPage />} />
+
+        {/* 🔒 ПРИЛОЖЕНИЕ (ЗАЩИЩЁННОЕ) */}
         <Route
           path="/app"
           element={
@@ -42,19 +42,18 @@ function App() {
             </PrivateRoute>
           }
         >
-          <Route index element={<Dashboard />} />
-          <Route path="cashflow" element={<Cashflow />} />
-          <Route path="pl" element={<PL />} />
-          <Route path="balance" element={<Balance />} />
-          <Route path="settings" element={<Settings />} />
-          <Route path="Database" element={<Database />} />
-          <Route path="Operations" element={<Operations />} />
-          <Route path="MyWallet" element={<MyWallet />} />
-          <Route path="MyCompany" element={<MyCompany />} />
-          <Route path="MyCategories" element={<MyCategories />} />
-          <Route path="MyProjects" element={<MyProjects />} />
-          <Route path="Teampage" element={<Teampage />} />
-          <Route path="InviteAcceptPage" element={<InviteAcceptPage />} />
+          <Route index                element={<Dashboard />}    />
+          <Route path="cashflow"      element={<Cashflow />}     />
+          <Route path="pl"            element={<PL />}           />
+          <Route path="balance"       element={<Balance />}      />
+          <Route path="settings"      element={<Settings />}     />
+          <Route path="Database"      element={<Database />}     />
+          <Route path="Operations"    element={<Operations />}   />
+          <Route path="MyWallet"      element={<MyWallet />}     />
+          <Route path="MyCompany"     element={<MyCompany />}    />
+          <Route path="MyCategories"  element={<MyCategories />} />
+          <Route path="MyProjects"    element={<MyProjects />}   />
+          <Route path="TeamPage"      element={<TeamPage />}     />
         </Route>
 
       </Routes>
