@@ -13,11 +13,13 @@ import Database from "./Pages/Database";
 import Operations from "./Pages/Operations";
 import Login from "./Pages/Login";
 import Register from "./Pages/Register";
-import MyWallet from "./Pages/MyWallet";
-import MyCompany from "./Pages/MyCompany";
+import MyWallet from "./pages/MyWallet";
+import MyCompany from "./pages/MyCompany";
 import PrivateRoute from "./Components/PrivateRoute";
 import MyCategories from "./Pages/MyCategories";
 import MyProjects from "./Pages/MyProjects";
+import Teampage from "./Pages/TeamPage";
+import InviteAcceptPage from "./Pages/InviteAcceptPage";
 
 function App() {
   return (
@@ -51,6 +53,8 @@ function App() {
           <Route path="MyCompany" element={<MyCompany />} />
           <Route path="MyCategories" element={<MyCategories />} />
           <Route path="MyProjects" element={<MyProjects />} />
+          <Route path="Teampage" element={<Teampage />} />
+          <Route path="InviteAcceptPage" element={<InviteAcceptPage />} />
         </Route>
 
       </Routes>
