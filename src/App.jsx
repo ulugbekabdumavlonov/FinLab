@@ -10,13 +10,13 @@ import Database from "./Pages/Database";
 import Operations from "./Pages/Operations";
 import Login from "./Pages/Login";
 import Register from "./Pages/Register";
-import MyWallet from "./pages/MyWallet";
-import MyCompany from "./pages/MyCompany";
+import MyWallet from "./Pages/MyWallet";
+import MyCompany from "./Pages/MyCompany";
 import PrivateRoute from "./Components/PrivateRoute";
 import MyCategories from "./Pages/MyCategories";
 import MyProjects from "./Pages/MyProjects";
-import TeamPage from "./TeamPage";
-import InviteAcceptPage from "./InviteAcceptPage";
+import TeamPage from "./Pages/TeamPage";
+import InviteAcceptPage from "./Pages/InviteAcceptPage";
 
 function App() {
   return (
