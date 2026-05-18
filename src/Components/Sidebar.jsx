@@ -24,6 +24,8 @@ import {
   Bell,
   HelpCircle,
   Clock,
+  Users,
+  FileUser,
 } from "lucide-react";
 
 /* ─────────────────────────────────────────────
@@ -266,6 +268,25 @@ export default function Sidebar() {
             label="Баланс"
             active={isActive("/app/balance")}
           />
+        </Section>
+        <Section title="Зарплата и Сотрудники"
+          open={openPayroll}
+          toggle={() => setOpenPayroll(!openPayroll)}>
+
+          <NavItem
+            to="/app/employees"
+            icon={<Users size={18} />}
+            label="Сотрудники"
+            active={isActive("/app/employees")}
+          />
+
+          <NavItem
+            to="/app/Salarystatement"
+            icon={<FileUser size={18} />}
+            label="Ведомость"
+            active={isActive("/app/Salarystatement")}
+          />
+
         </Section>
 
         <Section
