@@ -196,6 +196,7 @@ function UserDropdown({ user, onLogout }) {
 export default function Sidebar() {
   const [user, setUser] = useState(null);
   const [openReports, setOpenReports] = useState(true);
+  const [openPayroll, setOpenPayroll] = useState(true);
   const [openSystem, setOpenSystem] = useState(true);
   const [openInfo, setOpenInfo] = useState(true);
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -269,6 +270,7 @@ export default function Sidebar() {
             active={isActive("/app/balance")}
           />
         </Section>
+
         <Section title="Зарплата и Сотрудники"
           open={openPayroll}
           toggle={() => setOpenPayroll(!openPayroll)}>
@@ -312,6 +314,9 @@ export default function Sidebar() {
             label="Импорт"
             active={isActive("/app/database")}
           />
+          
+
+
         </Section>
 
         <Section
