@@ -18,6 +18,8 @@ import MyCompany from "./Pages/MyCompany";
 import PrivateRoute from "./Components/PrivateRoute";
 import MyCategories from "./Pages/MyCategories";
 import MyProjects from "./Pages/MyProjects";
+import Employees from "./Pages/Employees";
+import SalaryStatement from "./Pages/SalaryStatement";
 
 function App() {
   return (
@@ -51,6 +53,8 @@ function App() {
           <Route path="MyCompany" element={<MyCompany />} />
           <Route path="MyCategories" element={<MyCategories />} />
           <Route path="MyProjects" element={<MyProjects />} />
+          <Route path="Employees" element={<Employees />}  />
+          <Route path="SalaryStatement" element={<SalaryStatement />}  />
         </Route>
 
       </Routes>
