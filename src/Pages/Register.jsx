@@ -1,137 +1,85 @@
 import { useState } from "react";
-import {
-  createUserWithEmailAndPassword,
-  updateProfile
-} from "firebase/auth";
-import { doc, setDoc, serverTimestamp } from "firebase/firestore";
-import { auth, db } from "../firebase";
+import { createUserWithEmailAndPassword } from "firebase/auth";
+import { auth } from "../firebase";
 import { useNavigate } from "react-router-dom";
-import { FaEye, FaEyeSlash } from "react-icons/fa";
-import { motion } from "framer-motion";
 
-export default function Register() {
+export default function RegisterBlock() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [name, setName] = useState("");
-  const [phone, setPhone] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
-
+  const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
   const handleRegister = async () => {
+    if (!email.trim() || !password.trim()) {
+      alert("Заполните все поля");
+      return;
+    }
+
     try {
-      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-      const user = userCredential.user;
-
-      await updateProfile(user, { displayName: name });
-
-      await setDoc(doc(db, "users", user.uid), {
-        uid: user.uid,
-        name,
-        email,
-        phone,
-        createdAt: serverTimestamp(),
-      });
-
-      navigate("/app");
+      setLoading(true);
+      await createUserWithEmailAndPassword(auth, email, password);
+      navigate("/onboarding");
     } catch (err) {
       alert(err.message);
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-[#1e1b4b] via-[#312e81] to-[#020617] p-4 md:p-6">
+    <div className="relative grid grid-cols-1 md:grid-cols-2 gap-8 md:gap-16 px-4 py-10 md:px-16 md:py-24 bg-gradient-to-br from-gray-50 via-white to-gray-100 overflow-hidden">
+      <div className="absolute -top-40 -left-40 w-[500px] h-[500px] bg-blue-500 opacity-20 blur-[120px] rounded-full"></div>
+      <div className="absolute bottom-0 right-0 w-[400px] h-[400px] bg-purple-500 opacity-20 blur-[120px] rounded-full"></div>
 
-      {/* MAIN CONTAINER */}
-      <div className="w-full max-w-6xl flex flex-col md:flex-row rounded-3xl overflow-hidden shadow-2xl border border-white/10">
+      <div className="z-10">
+        <h2 className="text-3xl md:text-5xl font-extrabold leading-tight mb-4 md:mb-6">
+          Начните управлять финансами
+          <span className="block text-blue-600">на новом уровне</span>
+        </h2>
+        <p className="text-gray-600 text-base md:text-lg mb-6 md:mb-8 max-w-md">
+          7 дней бесплатно. Без карты. Полный контроль над бизнесом уже сегодня.
+        </p>
+        <ul className="space-y-3 md:space-y-4 text-gray-700 text-base md:text-lg">
+          <li className="flex items-center gap-3 hover:translate-x-1 transition">
+            <span className="text-green-500 text-xl">✔</span>
+            ИИ-рекомендации по оптимизации
+          </li>
+          <li className="flex items-center gap-3 hover:translate-x-1 transition">
+            <span className="text-green-500 text-xl">✔</span>
+            Все банковские данные в одном месте
+          </li>
+          <li className="flex items-center gap-3 hover:translate-x-1 transition">
+            <span className="text-green-500 text-xl">✔</span>
+            Автоматический отчёт ДДС
+          </li>
+        </ul>
+      </div>
 
-        {/* LEFT SIDE (branding) */}
-        <div className="hidden md:flex w-1/2 relative bg-gradient-to-br from-blue-600 via-indigo-600 to-purple-600 items-center justify-center min-h-[680px]">
-          <div className="absolute w-[350px] h-[350px] bg-white/20 blur-[140px] rounded-full"></div>
-          <motion.div
-            initial={{ opacity: 0, scale: 0.9 }}
-            animate={{ opacity: 1, scale: 1 }}
-            className="text-white text-center z-10 px-10"
+      <div className="z-10 backdrop-blur-xl bg-white/70 border border-white/40 p-6 md:p-10 rounded-3xl shadow-2xl hover:shadow-blue-200 transition-all duration-300">
+        <div className="space-y-5 md:space-y-6">
+          <input
+            placeholder="Email"
+            value={email}
+            className="w-full bg-transparent border-b border-gray-300 focus:border-blue-500 outline-none py-3 transition"
+            onChange={(e) => setEmail(e.target.value)}
+          />
+          <input
+            type="password"
+            placeholder="Пароль"
+            value={password}
+            className="w-full bg-transparent border-b border-gray-300 focus:border-blue-500 outline-none py-3 transition"
+            onChange={(e) => setPassword(e.target.value)}
+          />
+          <button
+            onClick={handleRegister}
+            disabled={loading}
+            className="w-full mt-4 md:mt-6 bg-gradient-to-r from-blue-600 to-indigo-600 text-white py-3 md:py-4 rounded-xl text-base md:text-lg font-semibold shadow-lg hover:shadow-blue-400/50 hover:scale-[1.02] active:scale-[0.98] transition-all duration-200 disabled:opacity-60 disabled:cursor-not-allowed disabled:scale-100"
           >
-            <h2 className="text-4xl font-bold mb-4">Создай аккаунт</h2>
-            <p className="text-white/80">
-              Начни управлять финансами бизнеса уже сегодня. ДДС, P&L и баланс в одном месте.
-            </p>
-          </motion.div>
-        </div>
-
-        {/* MOBILE HEADER (только на телефоне) */}
-        <div className="flex md:hidden w-full bg-gradient-to-br from-blue-600 via-indigo-600 to-purple-600 items-center justify-center py-10 px-6">
-          <div className="text-white text-center">
-            <h2 className="text-3xl font-bold mb-2">Создай аккаунт</h2>
-            <p className="text-white/80 text-sm">
-              ДДС, P&L и баланс в одном месте
-            </p>
-          </div>
-        </div>
-
-        {/* RIGHT SIDE (form) */}
-        <div className="w-full md:w-1/2 bg-white/10 backdrop-blur-xl flex items-center justify-center py-10 md:py-0">
-          <motion.div
-            initial={{ opacity: 0, y: 30 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="w-full max-w-md px-6 md:px-10"
-          >
-            <h2 className="text-3xl font-bold text-white mb-2">Регистрация</h2>
-            <p className="text-white/60 mb-6 md:mb-8">
-              Заполни данные для создания аккаунта
-            </p>
-
-            <div className="flex flex-col gap-5">
-              <input
-                placeholder="Имя"
-                onChange={(e) => setName(e.target.value)}
-                className="bg-white/10 border border-white/20 rounded-xl px-4 py-3 text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-              <input
-                placeholder="Телефон"
-                onChange={(e) => setPhone(e.target.value)}
-                className="bg-white/10 border border-white/20 rounded-xl px-4 py-3 text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-              <input
-                placeholder="Email"
-                onChange={(e) => setEmail(e.target.value)}
-                className="bg-white/10 border border-white/20 rounded-xl px-4 py-3 text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-
-              <div className="relative">
-                <input
-                  type={showPassword ? "text" : "password"}
-                  placeholder="Пароль"
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="w-full bg-white/10 border border-white/20 rounded-xl px-4 py-3 pr-10 text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-                <div
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-3 text-white/60 cursor-pointer"
-                >
-                  {showPassword ? <FaEyeSlash /> : <FaEye />}
-                </div>
-              </div>
-
-              <button
-                onClick={handleRegister}
-                className="mt-2 py-3 rounded-xl bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-semibold hover:scale-105 transition shadow-lg"
-              >
-                Создать аккаунт
-              </button>
-
-              <p className="text-sm text-center text-white/60 mt-2">
-                Уже есть аккаунт?{" "}
-                <span
-                  onClick={() => navigate("/login")}
-                  className="text-blue-400 cursor-pointer hover:underline"
-                >
-                  Войти
-                </span>
-              </p>
-            </div>
-          </motion.div>
+            {loading ? "Создание аккаунта..." : "Попробовать бесплатно"}
+          </button>
+          <p className="text-xs text-gray-500 text-center">
+            🔒 Ваши данные защищены
+          </p>
         </div>
       </div>
     </div>
