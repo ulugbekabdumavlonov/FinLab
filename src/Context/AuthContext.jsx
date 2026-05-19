@@ -2,7 +2,7 @@ import { createContext, useContext, useEffect, useState } from "react";
 import { onAuthStateChanged, signOut } from "firebase/auth";
 import { doc, onSnapshot } from "firebase/firestore";
 import { auth, db } from "../firebase";
-import { store } from "../useAppStore";
+import { store } from "../Pages/useAppStore";
 
 const AuthContext = createContext();
 
