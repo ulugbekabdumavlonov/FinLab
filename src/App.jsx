@@ -20,7 +20,7 @@ import MyCategories from "./Pages/MyCategories";
 import MyProjects from "./Pages/MyProjects";
 import Employees from "./Pages/Employees";
 import SalaryStatement from "./Pages/SalaryStatement";
-
+import Onboarding from "./Pages/Onboarding";
 function App() {
   return (
     <BrowserRouter>
@@ -32,6 +32,7 @@ function App() {
         {/* 🔐 AUTH */}
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
+        <Route path="/onboarding" element={<Onboarding />} />
 
         {/* 🔒 ПРИЛОЖЕНИЕ (ЗАЩИЩЕННОЕ) */}
         <Route
