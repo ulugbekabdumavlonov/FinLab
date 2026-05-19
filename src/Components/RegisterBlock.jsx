@@ -4,28 +4,33 @@ import { auth } from "../firebase";
 import { useNavigate } from "react-router-dom";
 
 export default function RegisterBlock() {
-  const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
   const handleRegister = async () => {
+    if (!email.trim() || !password.trim()) {
+      alert("Заполните все поля");
+      return;
+    }
+
     try {
+      setLoading(true);
       await createUserWithEmailAndPassword(auth, email, password);
-      navigate("/app");
+      navigate("/onboarding");
     } catch (err) {
       alert(err.message);
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
     <div className="relative grid grid-cols-1 md:grid-cols-2 gap-8 md:gap-16 px-4 py-10 md:px-16 md:py-24 bg-gradient-to-br from-gray-50 via-white to-gray-100 overflow-hidden">
-      
-      {/* 🔥 BACKGROUND GLOW */}
       <div className="absolute -top-40 -left-40 w-[500px] h-[500px] bg-blue-500 opacity-20 blur-[120px] rounded-full"></div>
       <div className="absolute bottom-0 right-0 w-[400px] h-[400px] bg-purple-500 opacity-20 blur-[120px] rounded-full"></div>
 
-      {/* LEFT */}
       <div className="z-10">
         <h2 className="text-3xl md:text-5xl font-extrabold leading-tight mb-4 md:mb-6">
           Начните управлять финансами
@@ -50,30 +55,27 @@ export default function RegisterBlock() {
         </ul>
       </div>
 
-      {/* RIGHT FORM */}
       <div className="z-10 backdrop-blur-xl bg-white/70 border border-white/40 p-6 md:p-10 rounded-3xl shadow-2xl hover:shadow-blue-200 transition-all duration-300">
         <div className="space-y-5 md:space-y-6">
           <input
-            placeholder="Имя"
-            className="w-full bg-transparent border-b border-gray-300 focus:border-blue-500 outline-none py-3 transition"
-            onChange={(e) => setName(e.target.value)}
-          />
-          <input
             placeholder="Email"
+            value={email}
             className="w-full bg-transparent border-b border-gray-300 focus:border-blue-500 outline-none py-3 transition"
             onChange={(e) => setEmail(e.target.value)}
           />
           <input
             type="password"
             placeholder="Пароль"
+            value={password}
             className="w-full bg-transparent border-b border-gray-300 focus:border-blue-500 outline-none py-3 transition"
             onChange={(e) => setPassword(e.target.value)}
           />
           <button
             onClick={handleRegister}
-            className="w-full mt-4 md:mt-6 bg-gradient-to-r from-blue-600 to-indigo-600 text-white py-3 md:py-4 rounded-xl text-base md:text-lg font-semibold shadow-lg hover:shadow-blue-400/50 hover:scale-[1.02] active:scale-[0.98] transition-all duration-200"
+            disabled={loading}
+            className="w-full mt-4 md:mt-6 bg-gradient-to-r from-blue-600 to-indigo-600 text-white py-3 md:py-4 rounded-xl text-base md:text-lg font-semibold shadow-lg hover:shadow-blue-400/50 hover:scale-[1.02] active:scale-[0.98] transition-all duration-200 disabled:opacity-60 disabled:cursor-not-allowed disabled:scale-100"
           >
-            Попробовать бесплатно
+            {loading ? "Создание аккаунта..." : "Попробовать бесплатно"}
           </button>
           <p className="text-xs text-gray-500 text-center">
             🔒 Ваши данные защищены
