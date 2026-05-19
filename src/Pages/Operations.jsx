@@ -12,7 +12,7 @@ import {
   onSnapshot,
 } from "firebase/firestore";
 import { auth, db } from "../firebase";
-import { useAppStore, store } from "./useAppStore";
+import { useAppStore, store } from "../useAppStore";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 const userCol = (name) => collection(db, "users", auth.currentUser.uid, name);
