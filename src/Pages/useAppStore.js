@@ -2,27 +2,46 @@
  * useAppStore.js
  *
  * Глобальный синглтон-кэш данных Firebase.
- * Данные грузятся один раз за сессию — все страницы используют этот хук
- * вместо прямых вызовов getDocs().
+ * Данные грузятся из коллекции владельца (companyId) —
+ * сотрудники видят те же данные что и owner.
  *
  * Использование:
  *   const { transactions, accounts, projects, categories, loading, refresh } = useAppStore();
  *
- * После мутации (add/update/delete) вызывай хелперы стора
- * чтобы обновить кэш без нового запроса к Firebase:
+ * После мутации вызывай хелперы стора:
  *   store.addTransaction(tx)
  *   store.updateTransaction(id, patch)
  *   store.deleteTransaction(id)
- *   store.updateAccount(id, patch)   // например, обновить баланс
- *   store.refresh()                  // принудительная перезагрузка всего
+ *   store.updateAccount(id, patch)
+ *   store.refresh()
  */
 
 import { useState, useEffect } from "react";
 import { collection, getDocs } from "firebase/firestore";
-import { auth, db } from "../firebase"; // ← поправь путь если нужно
+import { auth, db } from "./firebase";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
-const userCol = (name) => collection(db, "users", auth.currentUser.uid, name);
+
+// Возвращает uid владельца: для owner = его uid, для сотрудника = companyId
+function getOwnerId() {
+  const user = auth.currentUser;
+  if (!user) return null;
+
+  // AuthContext пишет companyId в кастомные поля через onSnapshot
+  // Они доступны через auth.currentUser только если ты их туда записал.
+  // Поэтому читаем из window.__finlab_user — туда AuthContext должен
+  // сохранять актуальные данные (см. ниже как настроить).
+  const stored = window.__finlab_user;
+  if (stored?.companyId) return stored.companyId;
+
+  return user.uid;
+}
+
+const userCol = (name) => {
+  const ownerId = getOwnerId();
+  if (!ownerId) throw new Error("Пользователь не авторизован");
+  return collection(db, "users", ownerId, name);
+};
 
 function normalizeDate(raw) {
   if (!raw) return "1970-01-01";
@@ -36,20 +55,22 @@ function normalizeDate(raw) {
   return raw;
 }
 
-// ─── Singleton state (живёт вне React, пока открыта вкладка) ─────────────────
+// ─── Singleton state ──────────────────────────────────────────────────────────
 const _cache = {
-  transactions:    null,  // [] | null
-  accounts:        null,
-  projects:        null,
-  categories:      null,  // string[]  — список имён
-  categoriesFull:  null,  // [] — полные объекты (для CashFlow categoryTypeMap)
-  legalEntities:   null,
-  loading:         false,
-  error:           null,
-  promise:         null,  // текущий промис загрузки (дедупликация)
+  transactions:     null,
+  accounts:         null,
+  projects:         null,
+  categories:       null,
+  categoriesFull:   null,
+  legalEntities:    null,
+  accountCurrencyMap: {},
+  categoryTypeMap:  {},
+  loading:          false,
+  error:            null,
+  promise:          null,
+  loadedForOwner:   null, // uid владельца при последней загрузке
 };
 
-// Подписчики — React-компоненты, которые хотят обновиться при изменении кэша
 const _listeners = new Set();
 
 function _notify() {
@@ -58,10 +79,15 @@ function _notify() {
 
 // ─── Загрузка данных ──────────────────────────────────────────────────────────
 async function _loadAll(force = false) {
-  // Уже загружено и не принудительно — возвращаем сразу
-  if (!force && _cache.transactions !== null) return;
+  const ownerId = getOwnerId();
+  if (!ownerId) return;
 
-  // Дедупликация: если уже грузим — ждём того же промиса
+  // Сбрасываем кэш если сменился владелец (например, сотрудник другой компании)
+  if (_cache.loadedForOwner && _cache.loadedForOwner !== ownerId) {
+    _resetCache();
+  }
+
+  if (!force && _cache.transactions !== null) return;
   if (_cache.loading && _cache.promise) return _cache.promise;
 
   _cache.loading = true;
@@ -90,14 +116,12 @@ async function _loadAll(force = false) {
           _isoDate: normalizeDate(data.Date || data.date || ""),
           type:     data.type || (amount >= 0 ? "income" : "expense"),
           _source:  data.source || "",
-          // для CashFlow: сохраняем оригинальные поля тоже
         };
       });
 
       // ── Счета ───────────────────────────────────────────────────────────────
       _cache.accounts = accSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
 
-      // Карта "имя счёта → валюта" (нужна CashFlow)
       _cache.accountCurrencyMap = {};
       _cache.accounts.forEach((acc) => {
         if (acc.name) _cache.accountCurrencyMap[acc.name] = acc.currency || "UZS";
@@ -109,14 +133,11 @@ async function _loadAll(force = false) {
       // ── Категории ───────────────────────────────────────────────────────────
       const catDocs = catSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
       _cache.categoriesFull = catDocs;
-
-      // Список имён (для Dropdown в OperationsPage / FilterModal)
       _cache.categories = catDocs
         .map((d) => d.name || d.title || d.label || d.id)
         .filter(Boolean)
         .sort((a, b) => a.localeCompare(b, "ru"));
 
-      // Карта "нормализованное имя → тип" (для CashFlow)
       _cache.categoryTypeMap = {};
       catDocs.forEach((d) => {
         if (d.name && d.type) {
@@ -126,6 +147,9 @@ async function _loadAll(force = false) {
 
       // ── Юрлица ──────────────────────────────────────────────────────────────
       _cache.legalEntities = entSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
+
+      // Запоминаем для кого загрузили
+      _cache.loadedForOwner = ownerId;
 
     } catch (e) {
       _cache.error = e.message;
@@ -139,12 +163,23 @@ async function _loadAll(force = false) {
   return _cache.promise;
 }
 
-// ─── Публичные мутаторы кэша ─────────────────────────────────────────────────
-// Вызывай их ПОСЛЕ успешного updateDoc/addDoc/deleteDoc —
-// они обновят кэш без лишнего запроса к Firebase.
+function _resetCache() {
+  _cache.transactions     = null;
+  _cache.accounts         = null;
+  _cache.projects         = null;
+  _cache.categories       = null;
+  _cache.categoriesFull   = null;
+  _cache.legalEntities    = null;
+  _cache.accountCurrencyMap = {};
+  _cache.categoryTypeMap  = {};
+  _cache.loading          = false;
+  _cache.error            = null;
+  _cache.promise          = null;
+  _cache.loadedForOwner   = null;
+}
 
+// ─── Публичные мутаторы кэша ─────────────────────────────────────────────────
 export const store = {
-  // Транзакции
   addTransaction(tx) {
     _cache.transactions = [tx, ...(_cache.transactions || [])];
     _notify();
@@ -160,7 +195,6 @@ export const store = {
     _notify();
   },
 
-  // Счета
   addAccount(acc) {
     _cache.accounts = [...(_cache.accounts || []), acc];
     _notify();
@@ -169,7 +203,6 @@ export const store = {
     _cache.accounts = (_cache.accounts || []).map((a) =>
       a.id === id ? { ...a, ...patch } : a
     );
-    // Обновляем карту валют
     const updated = (_cache.accounts || []).find((a) => a.id === id);
     if (updated?.name) _cache.accountCurrencyMap[updated.name] = updated.currency || "UZS";
     _notify();
@@ -179,7 +212,6 @@ export const store = {
     _notify();
   },
 
-  // Проекты
   addProject(proj) {
     _cache.projects = [...(_cache.projects || []), proj];
     _notify();
@@ -195,7 +227,6 @@ export const store = {
     _notify();
   },
 
-  // Категории
   addCategory(cat) {
     _cache.categoriesFull = [...(_cache.categoriesFull || []), cat];
     _rebuildCategories();
@@ -214,7 +245,6 @@ export const store = {
     _notify();
   },
 
-  // Юрлица
   addLegalEntity(ent) {
     _cache.legalEntities = [...(_cache.legalEntities || []), ent];
     _notify();
@@ -230,10 +260,12 @@ export const store = {
     _notify();
   },
 
-  // Принудительно перезагрузить всё из Firebase
   refresh() {
     return _loadAll(true);
   },
+
+  // Вызывай при logout чтобы очистить кэш
+  reset: _resetCache,
 };
 
 function _rebuildCategories() {
@@ -258,24 +290,23 @@ export function useAppStore() {
     const listener = () => forceRender((n) => n + 1);
     _listeners.add(listener);
 
-    // Запускаем загрузку если ещё не грузили
     _loadAll();
 
     return () => _listeners.delete(listener);
   }, []);
 
   return {
-    transactions:   _cache.transactions   ?? [],
-    accounts:       _cache.accounts       ?? [],
-    projects:       _cache.projects       ?? [],
-    categories:     _cache.categories     ?? [],       // string[] — имена
-    categoriesFull: _cache.categoriesFull ?? [],       // полные объекты
-    categoryTypeMap:_cache.categoryTypeMap ?? {},      // { "зарплата": "op", ... }
+    transactions:       _cache.transactions     ?? [],
+    accounts:           _cache.accounts         ?? [],
+    projects:           _cache.projects         ?? [],
+    categories:         _cache.categories       ?? [],
+    categoriesFull:     _cache.categoriesFull   ?? [],
+    categoryTypeMap:    _cache.categoryTypeMap  ?? {},
     accountCurrencyMap: _cache.accountCurrencyMap ?? {},
-    legalEntities:  _cache.legalEntities  ?? [],
-    loading:        _cache.loading || _cache.transactions === null,
-    error:          _cache.error,
-    store,                                             // мутаторы
-    refresh:        store.refresh,
+    legalEntities:      _cache.legalEntities    ?? [],
+    loading:            _cache.loading || _cache.transactions === null,
+    error:              _cache.error,
+    store,
+    refresh:            store.refresh,
   };
 }
