@@ -1,254 +1,837 @@
-import { useState, useEffect } from "react";
-import { Plus, MoreVertical } from "lucide-react";
+/**
+ * BusinessDirections.jsx
+ * Направления бизнеса одного собственника
+ * Примеры: Гейм-клуб, Розничная торговля, Рестораны, Недвижимость и т.д.
+ */
+
+import { useState, useEffect, useRef } from "react";
 import { auth, db } from "../firebase";
 import {
-  collection,
-  addDoc,
-  getDocs,
-  updateDoc,
-  deleteDoc,
-  doc
+  collection, addDoc, getDocs,
+  updateDoc, deleteDoc, doc, serverTimestamp,
 } from "firebase/firestore";
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
 const userCol = (name) => collection(db, "users", auth.currentUser.uid, name);
 const userDoc = (name, id) => doc(db, "users", auth.currentUser.uid, name, id);
 
-export default function Projects() {
-  const [projects, setProjects] = useState([]);
-  const [entities, setEntities] = useState([]);
-  const [accounts, setAccounts] = useState([]);
+// ─── Design tokens ─────────────────────────────────────────────────────────────
+const C = {
+  bg:           "#F0F2F7",
+  surface:      "#FFFFFF",
+  surfaceAlt:   "#F7F8FC",
+  border:       "#E4E8F0",
+  borderHover:  "#C8D0E0",
+  ink:          "#0F172A",
+  inkMid:       "#3D4A5C",
+  inkLight:     "#64748B",
+  inkFaint:     "#94A3B8",
+  blue:         "#2563EB",
+  blueBg:       "#EFF6FF",
+  blueBorder:   "#BFDBFE",
+  green:        "#059669",
+  greenBg:      "#ECFDF5",
+  greenBorder:  "#6EE7B7",
+  red:          "#E11D48",
+  redBg:        "#FFF1F2",
+  redBorder:    "#FECDD3",
+  amber:        "#D97706",
+  amberBg:      "#FFFBEB",
+  amberBorder:  "#FDE68A",
+  purple:       "#7C3AED",
+  purpleBg:     "#F5F3FF",
+  purpleBorder: "#DDD6FE",
+};
 
-  const [openModal, setOpenModal] = useState(false);
-  const [editingId, setEditingId] = useState(null);
-  const [menuOpen, setMenuOpen] = useState(null);
+// ─── Иконки направлений ───────────────────────────────────────────────────────
+const DIRECTION_ICONS = [
+  { value: "🎮", label: "Гейм-клуб" },
+  { value: "🛒", label: "Розница" },
+  { value: "🍽️", label: "Ресторан" },
+  { value: "🏠", label: "Недвижимость" },
+  { value: "🏗️", label: "Строительство" },
+  { value: "🏭", label: "Производство" },
+  { value: "🚚", label: "Логистика" },
+  { value: "💊", label: "Медицина" },
+  { value: "📚", label: "Образование" },
+  { value: "💻", label: "IT / Технологии" },
+  { value: "🏦", label: "Финансы" },
+  { value: "🌾", label: "Агробизнес" },
+  { value: "⚡", label: "Энергетика" },
+  { value: "✈️", label: "Туризм" },
+  { value: "🎯", label: "Маркетинг" },
+  { value: "🔧", label: "Сервис / Ремонт" },
+  { value: "💄", label: "Красота / СПА" },
+  { value: "🏋️", label: "Фитнес / Спорт" },
+  { value: "📦", label: "Склад / Оптовая" },
+  { value: "🌐", label: "Другое" },
+];
 
-  const loadData = async () => {
-    const projSnap = await getDocs(userCol("projects"));
-    const entSnap  = await getDocs(userCol("legal_entities"));
-    const accSnap  = await getDocs(userCol("accounts"));
+// ─── Палитры для карточек ─────────────────────────────────────────────────────
+const PALETTES = [
+  { bg: "#EFF6FF", color: "#2563EB", light: "#DBEAFE" },
+  { bg: "#ECFDF5", color: "#059669", light: "#D1FAE5" },
+  { bg: "#FFF7ED", color: "#EA580C", light: "#FED7AA" },
+  { bg: "#FFF1F2", color: "#E11D48", light: "#FECDD3" },
+  { bg: "#F5F3FF", color: "#7C3AED", light: "#EDE9FE" },
+  { bg: "#FFFBEB", color: "#D97706", light: "#FDE68A" },
+  { bg: "#F0FDF4", color: "#16A34A", light: "#BBF7D0" },
+  { bg: "#FDF2F8", color: "#C026D3", light: "#F5D0FE" },
+];
+function getPalette(name = "") {
+  return PALETTES[name.charCodeAt(0) % PALETTES.length];
+}
 
-    setProjects(projSnap.docs.map(d => ({ id: d.id, ...d.data() })));
-    setEntities(entSnap.docs.map(d => ({ id: d.id, ...d.data() })));
-    setAccounts(accSnap.docs.map(d => ({ id: d.id, ...d.data() })));
-  };
+const inpBase = {
+  fontFamily: "inherit", fontSize: 13, padding: "9px 12px",
+  border: `1px solid ${C.border}`, borderRadius: 8,
+  background: C.surfaceAlt, color: C.ink, outline: "none",
+  width: "100%", boxSizing: "border-box",
+};
 
-  useEffect(() => {
-    loadData();
-  }, []);
-
-  const handleUpdate = async (id, field, value) => {
-    await updateDoc(userDoc("projects", id), { [field]: value });
-
-    setProjects(prev =>
-      prev.map(p => p.id === id ? { ...p, [field]: value } : p)
-    );
-  };
-
-  const handleDelete = async (id) => {
-    if (!confirm("Удалить проект?")) return;
-    await deleteDoc(userDoc("projects", id));
-    loadData();
-  };
-
-  const getEntities = (ids = []) => entities.filter(e => ids.includes(e.id));
-  const getAccounts = (ids = []) => accounts.filter(a => ids.includes(a.id));
-
+function Field({ label, children, hint }) {
   return (
-    <div className="p-8 bg-[#f8fafc] min-h-screen">
-
-      <div className="flex justify-between mb-8">
-        <h1 className="text-3xl font-bold">Проекты</h1>
-
-        <button
-          onClick={() => setOpenModal(true)}
-          className="flex items-center gap-2 px-5 py-2 rounded-xl bg-blue-600 text-white"
-        >
-          <Plus size={16} />
-          Создать
-        </button>
-      </div>
-
-      <div className="grid grid-cols-3 gap-6">
-
-        {projects.map((item) => {
-          const projEntities = getEntities(item.entityIds);
-          const projAccounts = getAccounts(item.accountIds);
-
-          return (
-            <div
-              key={item.id}
-              className="relative bg-white p-5 rounded-2xl shadow hover:shadow-xl transition"
-            >
-
-              <div className="absolute top-3 right-3">
-                <button onClick={() => setMenuOpen(menuOpen === item.id ? null : item.id)}>
-                  <MoreVertical size={18} />
-                </button>
-
-                {menuOpen === item.id && (
-                  <div className="absolute right-0 mt-2 bg-white shadow-lg rounded-lg p-2 text-sm z-10">
-                    <button
-                      onClick={() => setEditingId(item.id)}
-                      className="block px-3 py-2 hover:bg-gray-100 w-full text-left"
-                    >
-                      Редактировать
-                    </button>
-
-                    <button
-                      onClick={() => handleDelete(item.id)}
-                      className="block px-3 py-2 text-red-500 hover:bg-gray-100 w-full text-left"
-                    >
-                      Удалить
-                    </button>
-                  </div>
-                )}
-              </div>
-
-              {editingId === item.id ? (
-                <div className="space-y-2">
-                  <input
-                    value={item.name}
-                    onChange={(e) => handleUpdate(item.id, "name", e.target.value)}
-                    className="font-semibold text-lg w-full border rounded px-2"
-                  />
-
-                  <textarea
-                    value={item.description || ""}
-                    onChange={(e) => handleUpdate(item.id, "description", e.target.value)}
-                    className="text-sm w-full border rounded px-2"
-                  />
-
-                  <button
-                    onClick={() => setEditingId(null)}
-                    className="text-blue-600 text-sm"
-                  >
-                    Готово
-                  </button>
-                </div>
-              ) : (
-                <>
-                  <h3 className="font-semibold text-lg">{item.name}</h3>
-                  <p className="text-xs text-gray-400">
-                    {item.description || "Без описания"}
-                  </p>
-                </>
-              )}
-
-              {projEntities.length > 0 && (
-                <div className="mt-4 border-t pt-3">
-                  <p className="text-xs text-gray-400 mb-2">Юрлица</p>
-                  {projEntities.map(e => (
-                    <div key={e.id} className="text-sm bg-gray-50 px-3 py-2 rounded mb-1">
-                      {e.name}
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              {projAccounts.length > 0 && (
-                <div className="mt-3">
-                  <p className="text-xs text-gray-400 mb-2">Счета</p>
-                  {projAccounts.map(acc => (
-                    <div
-                      key={acc.id}
-                      className="flex justify-between text-sm bg-gray-50 px-3 py-2 rounded mb-1"
-                    >
-                      <span>{acc.name}</span>
-                      <span>{acc.balance} {acc.currency}</span>
-                    </div>
-                  ))}
-                </div>
-              )}
-
-            </div>
-          );
-        })}
-      </div>
-
-      {openModal && (
-        <CreateProjectModal
-          entities={entities}
-          accounts={accounts}
-          onClose={() => setOpenModal(false)}
-          onSuccess={loadData}
-        />
-      )}
+    <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+      <label style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.07em", color: C.inkFaint }}>
+        {label}
+      </label>
+      {children}
+      {hint && <span style={{ fontSize: 11, color: C.inkFaint }}>{hint}</span>}
     </div>
   );
 }
 
-function CreateProjectModal({ onClose, onSuccess, entities, accounts }) {
-  const [name, setName] = useState("");
-  const [selectedEntities, setSelectedEntities] = useState([]);
-  const [selectedAccounts, setSelectedAccounts] = useState([]);
+// ─── STATUS ───────────────────────────────────────────────────────────────────
+const STATUSES = [
+  { value: "active",   label: "Активное",    color: C.green,  bg: C.greenBg,  border: C.greenBorder },
+  { value: "paused",   label: "Приостановлено", color: C.amber, bg: C.amberBg, border: C.amberBorder },
+  { value: "closed",   label: "Закрыто",     color: C.red,    bg: C.redBg,    border: C.redBorder },
+  { value: "planning", label: "Планируется", color: C.purple, bg: C.purpleBg, border: C.purpleBorder },
+];
+function getStatus(val) { return STATUSES.find(s => s.value === val) || STATUSES[0]; }
 
-  const toggle = (list, setList, id) => {
-    setList(prev =>
-      prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
-    );
-  };
+function StatusBadge({ value }) {
+  const s = getStatus(value);
+  return (
+    <span style={{
+      display: "inline-flex", alignItems: "center", gap: 5,
+      fontSize: 11, fontWeight: 600, padding: "3px 9px", borderRadius: 20,
+      background: s.bg, color: s.color, border: `1px solid ${s.border}`,
+    }}>
+      <span style={{ width: 5, height: 5, borderRadius: "50%", background: s.color }} />
+      {s.label}
+    </span>
+  );
+}
 
-  const handleCreate = async () => {
-    await addDoc(userCol("projects"), {
-      name,
-      entityIds: selectedEntities,
-      accountIds: selectedAccounts,
-      createdAt: new Date(),
-    });
+// ─── Modal ────────────────────────────────────────────────────────────────────
+function DirectionModal({ initial, entities, accounts, onClose, onSuccess }) {
+  const isEdit = Boolean(initial?.id);
+  const [form, setForm] = useState({
+    name:        initial?.name        || "",
+    icon:        initial?.icon        || "🌐",
+    description: initial?.description || "",
+    status:      initial?.status      || "active",
+    location:    initial?.location    || "",
+    employees:   initial?.employees   || "",
+    revenue:     initial?.revenue     || "",
+    currency:    initial?.currency    || "UZS",
+    entityIds:   initial?.entityIds   || [],
+    accountIds:  initial?.accountIds  || [],
+    notes:       initial?.notes       || "",
+  });
+  const [saving, setSaving] = useState(false);
+  const [iconOpen, setIconOpen] = useState(false);
+  const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
+  const toggleArr = (key, id) =>
+    set(key, form[key].includes(id) ? form[key].filter(i => i !== id) : [...form[key], id]);
 
-    onSuccess();
-    onClose();
+  const handleSave = async () => {
+    if (!form.name.trim()) return;
+    setSaving(true);
+    try {
+      if (isEdit) {
+        await updateDoc(userDoc("projects", initial.id), { ...form, updatedAt: serverTimestamp() });
+      } else {
+        await addDoc(userCol("projects"), { ...form, createdAt: serverTimestamp() });
+      }
+      await onSuccess();
+      onClose();
+    } finally { setSaving(false); }
   };
 
   return (
-    <div className="fixed inset-0 bg-black/40 flex justify-center items-center">
+    <div style={{
+      position: "fixed", inset: 0, background: "rgba(15,23,42,0.5)",
+      display: "flex", alignItems: "center", justifyContent: "center",
+      zIndex: 400, padding: 24,
+    }}>
+      <div style={{
+        background: C.surface, borderRadius: 16,
+        border: `1px solid ${C.border}`,
+        width: 640, maxWidth: "95vw", maxHeight: "92vh", overflowY: "auto",
+        boxShadow: "0 24px 64px rgba(15,23,42,0.2)",
+      }}>
 
-      <div className="bg-white p-6 rounded-xl w-[500px]">
-
-        <h2 className="mb-4 font-bold">Создать проект</h2>
-
-        <input
-          placeholder="Название"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          className="w-full border p-2 mb-4"
-        />
-
-        <div className="mb-4">
-          <p className="text-sm mb-2">Юрлица</p>
-          {entities.map(e => (
-            <label key={e.id} className="block text-sm">
-              <input
-                type="checkbox"
-                onChange={() => toggle(selectedEntities, setSelectedEntities, e.id)}
-              /> {e.name}
-            </label>
-          ))}
+        {/* Header */}
+        <div style={{
+          padding: "20px 28px 16px", borderBottom: `1px solid ${C.border}`,
+          display: "flex", alignItems: "center", justifyContent: "space-between",
+          position: "sticky", top: 0, background: C.surface, zIndex: 10,
+          borderRadius: "16px 16px 0 0",
+        }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            <div style={{ fontSize: 28 }}>{form.icon}</div>
+            <div>
+              <div style={{ fontSize: 16, fontWeight: 800, color: C.ink }}>
+                {isEdit ? "Редактировать направление" : "Новое направление бизнеса"}
+              </div>
+              <div style={{ fontSize: 12, color: C.inkFaint, marginTop: 1 }}>
+                {isEdit ? form.name : "Укажите название и параметры"}
+              </div>
+            </div>
+          </div>
+          <button onClick={onClose} style={{
+            width: 32, height: 32, borderRadius: 8, border: `1px solid ${C.border}`,
+            background: C.surfaceAlt, cursor: "pointer", fontSize: 16,
+            display: "flex", alignItems: "center", justifyContent: "center", color: C.inkFaint,
+          }}>✕</button>
         </div>
 
-        <div className="mb-4">
-          <p className="text-sm mb-2">Счета</p>
-          {accounts.map(a => (
-            <label key={a.id} className="block text-sm">
-              <input
-                type="checkbox"
-                onChange={() => toggle(selectedAccounts, setSelectedAccounts, a.id)}
-              /> {a.name}
-            </label>
-          ))}
+        <div style={{ padding: "24px 28px", display: "flex", flexDirection: "column", gap: 16 }}>
+
+          {/* Icon picker + Name */}
+          <div style={{ display: "grid", gridTemplateColumns: "auto 1fr", gap: 12, alignItems: "start" }}>
+            <Field label="Иконка">
+              <div style={{ position: "relative" }}>
+                <button onClick={() => setIconOpen(v => !v)} style={{
+                  width: 52, height: 44, borderRadius: 8, border: `1px solid ${iconOpen ? C.blue : C.border}`,
+                  background: iconOpen ? C.blueBg : C.surfaceAlt,
+                  fontSize: 22, cursor: "pointer", display: "flex",
+                  alignItems: "center", justifyContent: "center",
+                }}>
+                  {form.icon}
+                </button>
+                {iconOpen && (
+                  <div style={{
+                    position: "absolute", top: "calc(100% + 4px)", left: 0, zIndex: 200,
+                    background: C.surface, border: `1px solid ${C.border}`,
+                    borderRadius: 12, padding: 10, width: 300,
+                    boxShadow: "0 8px 24px rgba(15,23,42,0.12)",
+                    display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 4,
+                  }}>
+                    {DIRECTION_ICONS.map(({ value, label }) => (
+                      <button key={value} title={label}
+                        onClick={() => { set("icon", value); setIconOpen(false); }}
+                        style={{
+                          padding: "8px 4px", borderRadius: 8, border: `1px solid ${form.icon === value ? C.blue : "transparent"}`,
+                          background: form.icon === value ? C.blueBg : "transparent",
+                          fontSize: 20, cursor: "pointer", display: "flex",
+                          flexDirection: "column", alignItems: "center", gap: 2,
+                        }}
+                      >
+                        {value}
+                        <span style={{ fontSize: 8, color: C.inkFaint, lineHeight: 1, textAlign: "center" }}>{label}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </Field>
+
+            <Field label="Название направления *">
+              <input autoFocus value={form.name}
+                onChange={e => set("name", e.target.value)}
+                placeholder="Напр. Гейм-клубы, Рестораны, Розница…"
+                style={{ ...inpBase, fontSize: 14, fontWeight: 600 }}
+              />
+            </Field>
+          </div>
+
+          {/* Description */}
+          <Field label="Описание" hint="Что входит в это направление, чем занимается">
+            <textarea value={form.description}
+              onChange={e => set("description", e.target.value)}
+              placeholder="Опишите направление бизнеса: продукты, услуги, география…"
+              rows={3}
+              style={{ ...inpBase, resize: "vertical", minHeight: 80, lineHeight: 1.6 }}
+            />
+          </Field>
+
+          {/* Status + Location */}
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+            <Field label="Статус">
+              <select value={form.status} onChange={e => set("status", e.target.value)}
+                style={{ ...inpBase, cursor: "pointer" }}>
+                {STATUSES.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
+              </select>
+            </Field>
+            <Field label="Локация / География">
+              <input value={form.location}
+                onChange={e => set("location", e.target.value)}
+                placeholder="Напр. Ташкент, 3 точки"
+                style={inpBase}
+              />
+            </Field>
+          </div>
+
+          {/* Employees + Revenue */}
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+            <Field label="Кол-во сотрудников">
+              <input type="number" value={form.employees}
+                onChange={e => set("employees", e.target.value)}
+                placeholder="0"
+                style={inpBase}
+              />
+            </Field>
+            <Field label="Месячная выручка (план)">
+              <div style={{ display: "flex", gap: 6 }}>
+                <input type="number" value={form.revenue}
+                  onChange={e => set("revenue", e.target.value)}
+                  placeholder="0"
+                  style={{ ...inpBase, flex: 1 }}
+                />
+                <select value={form.currency} onChange={e => set("currency", e.target.value)}
+                  style={{ ...inpBase, width: 90, cursor: "pointer" }}>
+                  {["UZS","USD","EUR","RUB","KZT"].map(c => <option key={c}>{c}</option>)}
+                </select>
+              </div>
+            </Field>
+          </div>
+
+          {/* Divider */}
+          <div style={{ height: 1, background: C.border }} />
+          <div style={{ fontSize: 11, fontWeight: 700, color: C.blue, textTransform: "uppercase", letterSpacing: "0.08em" }}>
+            Привязанные юрлица
+          </div>
+          <div style={{ fontSize: 12, color: C.inkFaint, marginTop: -8 }}>
+            Выберите юридические лица, работающие в этом направлении
+          </div>
+
+          {entities.length === 0 ? (
+            <div style={{ fontSize: 13, color: C.inkFaint, padding: "12px 14px", background: C.surfaceAlt, borderRadius: 8 }}>
+              Нет юрлиц. Добавьте в разделе «Мои юрлица».
+            </div>
+          ) : (
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+              {entities.map(e => {
+                const pal     = getPalette(e.name);
+                const checked = form.entityIds.includes(e.id);
+                return (
+                  <div key={e.id} onClick={() => toggleArr("entityIds", e.id)} style={{
+                    display: "flex", alignItems: "center", gap: 10,
+                    padding: "10px 12px", borderRadius: 8, cursor: "pointer",
+                    border: `1px solid ${checked ? C.blue : C.border}`,
+                    background: checked ? C.blueBg : C.surfaceAlt, transition: "all 0.15s",
+                  }}>
+                    <div style={{
+                      width: 32, height: 32, borderRadius: 8, flexShrink: 0,
+                      background: pal.bg, color: pal.color,
+                      display: "flex", alignItems: "center", justifyContent: "center",
+                      fontSize: 11, fontWeight: 800,
+                    }}>
+                      {e.name.slice(0, 2).toUpperCase()}
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: checked ? C.blue : C.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                        {e.name}
+                      </div>
+                      <div style={{ fontSize: 10, color: C.inkFaint }}>
+                        {[e.orgType, e.inn ? `ИНН: ${e.inn}` : null].filter(Boolean).join(" · ")}
+                      </div>
+                    </div>
+                    <div style={{
+                      width: 18, height: 18, borderRadius: 5,
+                      border: `2px solid ${checked ? C.blue : C.borderHover}`,
+                      background: checked ? C.blue : "transparent",
+                      display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
+                    }}>
+                      {checked && <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="#fff" strokeWidth="2"><path d="M2 5l2.5 2.5L8 3"/></svg>}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {/* Accounts */}
+          <div style={{ height: 1, background: C.border }} />
+          <div style={{ fontSize: 11, fontWeight: 700, color: C.blue, textTransform: "uppercase", letterSpacing: "0.08em" }}>
+            Счета направления
+          </div>
+          <div style={{ fontSize: 12, color: C.inkFaint, marginTop: -8 }}>
+            Счета, относящиеся к этому направлению бизнеса
+          </div>
+
+          {accounts.length === 0 ? (
+            <div style={{ fontSize: 13, color: C.inkFaint, padding: "12px 14px", background: C.surfaceAlt, borderRadius: 8 }}>
+              Нет счетов. Добавьте в разделе «Счета».
+            </div>
+          ) : (
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+              {accounts.map(a => {
+                const checked = form.accountIds.includes(a.id);
+                const bal = Number(a.balance || 0);
+                return (
+                  <div key={a.id} onClick={() => toggleArr("accountIds", a.id)} style={{
+                    display: "flex", alignItems: "center", gap: 10,
+                    padding: "10px 12px", borderRadius: 8, cursor: "pointer",
+                    border: `1px solid ${checked ? C.green : C.border}`,
+                    background: checked ? C.greenBg : C.surfaceAlt, transition: "all 0.15s",
+                  }}>
+                    <div style={{
+                      width: 32, height: 32, borderRadius: 8, flexShrink: 0,
+                      background: checked ? C.greenBg : C.surfaceAlt,
+                      display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16,
+                    }}>🏦</div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: checked ? C.green : C.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                        {a.name}
+                      </div>
+                      <div style={{ fontSize: 11, fontWeight: 600, color: bal >= 0 ? C.green : C.red, fontVariantNumeric: "tabular-nums" }}>
+                        {bal >= 0 ? "+" : ""}{bal.toLocaleString("ru-RU")} {a.currency || "UZS"}
+                      </div>
+                    </div>
+                    <div style={{
+                      width: 18, height: 18, borderRadius: 5,
+                      border: `2px solid ${checked ? C.green : C.borderHover}`,
+                      background: checked ? C.green : "transparent",
+                      display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
+                    }}>
+                      {checked && <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="#fff" strokeWidth="2"><path d="M2 5l2.5 2.5L8 3"/></svg>}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {/* Notes */}
+          <div style={{ height: 1, background: C.border }} />
+          <Field label="Примечания">
+            <textarea value={form.notes}
+              onChange={e => set("notes", e.target.value)}
+              placeholder="Любая дополнительная информация о направлении…"
+              rows={2}
+              style={{ ...inpBase, resize: "vertical", lineHeight: 1.6 }}
+            />
+          </Field>
         </div>
 
-        <div className="flex justify-end gap-2">
-          <button onClick={onClose}>Отмена</button>
+        {/* Footer */}
+        <div style={{
+          padding: "14px 28px 20px", borderTop: `1px solid ${C.border}`,
+          display: "flex", gap: 10,
+          position: "sticky", bottom: 0, background: C.surface,
+          borderRadius: "0 0 16px 16px",
+        }}>
+          <button onClick={handleSave} disabled={saving || !form.name.trim()} style={{
+            fontFamily: "inherit", fontSize: 13, fontWeight: 700,
+            padding: "10px 28px", borderRadius: 8, border: "none",
+            background: (saving || !form.name.trim()) ? C.border : C.blue,
+            color: (saving || !form.name.trim()) ? C.inkFaint : "#fff",
+            cursor: (saving || !form.name.trim()) ? "not-allowed" : "pointer",
+          }}>
+            {saving ? "Сохранение…" : isEdit ? "Сохранить" : "Создать направление"}
+          </button>
+          <button onClick={onClose} style={{
+            fontFamily: "inherit", fontSize: 13, padding: "10px 18px", borderRadius: 8,
+            border: `1px solid ${C.border}`, background: "transparent", color: C.inkMid, cursor: "pointer",
+          }}>Отмена</button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
-          <button
-            onClick={handleCreate}
-            className="bg-blue-600 text-white px-4 py-2 rounded"
-          >
-            Создать
+// ─── Direction Card ───────────────────────────────────────────────────────────
+function DirectionCard({ item, entities, accounts, onEdit, onDelete }) {
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef(null);
+  const pal = getPalette(item.name);
+
+  const linkedEntities = entities.filter(e => (item.entityIds || []).includes(e.id));
+  const linkedAccounts = accounts.filter(a => (item.accountIds || []).includes(a.id));
+  const totalBalance   = linkedAccounts.reduce((s, a) => s + Number(a.balance || 0), 0);
+
+  useEffect(() => {
+    const h = (e) => { if (menuRef.current && !menuRef.current.contains(e.target)) setMenuOpen(false); };
+    document.addEventListener("mousedown", h);
+    return () => document.removeEventListener("mousedown", h);
+  }, []);
+
+  return (
+    <div style={{
+      background: C.surface, border: `1px solid ${C.border}`, borderRadius: 16,
+      overflow: "hidden", display: "flex", flexDirection: "column",
+      transition: "box-shadow 0.15s, transform 0.15s",
+      boxShadow: "0 1px 4px rgba(15,23,42,0.06)",
+    }}
+      onMouseEnter={e => { e.currentTarget.style.boxShadow = "0 8px 28px rgba(15,23,42,0.10)"; e.currentTarget.style.transform = "translateY(-2px)"; }}
+      onMouseLeave={e => { e.currentTarget.style.boxShadow = "0 1px 4px rgba(15,23,42,0.06)"; e.currentTarget.style.transform = "none"; }}
+    >
+      {/* Top accent bar */}
+      <div style={{ height: 5, background: `linear-gradient(90deg, ${pal.color}, ${pal.color}99)` }} />
+
+      <div style={{ padding: "20px 20px 16px", flex: 1, display: "flex", flexDirection: "column", gap: 12 }}>
+
+        {/* Header */}
+        <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+            {/* Icon circle */}
+            <div style={{
+              width: 52, height: 52, borderRadius: 14, flexShrink: 0,
+              background: pal.bg, border: `2px solid ${pal.light}`,
+              display: "flex", alignItems: "center", justifyContent: "center", fontSize: 26,
+            }}>
+              {item.icon || "🌐"}
+            </div>
+            <div>
+              <div style={{ fontSize: 16, fontWeight: 800, color: C.ink, letterSpacing: "-0.3px" }}>
+                {item.name}
+              </div>
+              {item.location && (
+                <div style={{ fontSize: 11, color: C.inkFaint, marginTop: 2, display: "flex", alignItems: "center", gap: 4 }}>
+                  📍 {item.location}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Menu */}
+          <div ref={menuRef} style={{ position: "relative" }}>
+            <button onClick={() => setMenuOpen(v => !v)} style={{
+              width: 30, height: 30, borderRadius: 7, border: `1px solid ${C.border}`,
+              background: menuOpen ? C.surfaceAlt : "transparent",
+              cursor: "pointer", display: "flex", alignItems: "center",
+              justifyContent: "center", color: C.inkFaint, fontSize: 16,
+            }}>⋯</button>
+            {menuOpen && (
+              <div style={{
+                position: "absolute", right: 0, top: "calc(100% + 4px)", zIndex: 100,
+                background: C.surface, border: `1px solid ${C.border}`,
+                borderRadius: 10, padding: "4px 0", minWidth: 160,
+                boxShadow: "0 8px 24px rgba(15,23,42,0.12)",
+              }}>
+                <button onClick={() => { onEdit(item); setMenuOpen(false); }} style={{
+                  display: "flex", alignItems: "center", gap: 8, width: "100%",
+                  padding: "9px 14px", border: "none", background: "transparent",
+                  cursor: "pointer", fontSize: 13, color: C.inkMid, fontFamily: "inherit",
+                }}
+                  onMouseEnter={e => e.currentTarget.style.background = C.surfaceAlt}
+                  onMouseLeave={e => e.currentTarget.style.background = "transparent"}
+                >✏️ Редактировать</button>
+                <div style={{ height: 1, background: C.border, margin: "2px 0" }} />
+                <button onClick={() => { onDelete(item.id); setMenuOpen(false); }} style={{
+                  display: "flex", alignItems: "center", gap: 8, width: "100%",
+                  padding: "9px 14px", border: "none", background: "transparent",
+                  cursor: "pointer", fontSize: 13, color: C.red, fontFamily: "inherit",
+                }}
+                  onMouseEnter={e => e.currentTarget.style.background = C.redBg}
+                  onMouseLeave={e => e.currentTarget.style.background = "transparent"}
+                >🗑️ Удалить</button>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Status + employees */}
+        <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+          <StatusBadge value={item.status || "active"} />
+          {item.employees && (
+            <span style={{ fontSize: 11, color: C.inkFaint }}>
+              👥 {item.employees} сотр.
+            </span>
+          )}
+        </div>
+
+        {/* Description */}
+        {item.description && (
+          <p style={{
+            fontSize: 12, color: C.inkLight, lineHeight: 1.65, margin: 0,
+            display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical", overflow: "hidden",
+          }}>
+            {item.description}
+          </p>
+        )}
+
+        {/* Revenue plan */}
+        {item.revenue && (
+          <div style={{
+            display: "flex", alignItems: "center", justifyContent: "space-between",
+            padding: "9px 12px", background: pal.bg, borderRadius: 8,
+            border: `1px solid ${pal.light}`,
+          }}>
+            <span style={{ fontSize: 11, color: C.inkFaint, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em" }}>
+              Выручка / мес
+            </span>
+            <span style={{ fontSize: 13, fontWeight: 800, color: pal.color, fontVariantNumeric: "tabular-nums" }}>
+              {Number(item.revenue).toLocaleString("ru-RU")} {item.currency || "UZS"}
+            </span>
+          </div>
+        )}
+
+        {/* Linked entities */}
+        {linkedEntities.length > 0 && (
+          <div>
+            <div style={{ fontSize: 10, fontWeight: 700, color: C.inkFaint, textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 6 }}>
+              Юрлица
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+              {linkedEntities.map(e => {
+                const p = getPalette(e.name);
+                return (
+                  <div key={e.id} style={{
+                    display: "flex", alignItems: "center", gap: 8, padding: "7px 10px",
+                    background: C.surfaceAlt, borderRadius: 8, border: `1px solid ${C.border}`,
+                  }}>
+                    <div style={{
+                      width: 26, height: 26, borderRadius: 7, background: p.bg, color: p.color,
+                      display: "flex", alignItems: "center", justifyContent: "center",
+                      fontSize: 9, fontWeight: 800, flexShrink: 0,
+                    }}>
+                      {e.name.slice(0, 2).toUpperCase()}
+                    </div>
+                    <div>
+                      <div style={{ fontSize: 12, fontWeight: 600, color: C.ink }}>{e.name}</div>
+                      {(e.orgType || e.inn) && (
+                        <div style={{ fontSize: 10, color: C.inkFaint }}>
+                          {[e.orgType, e.inn ? `ИНН ${e.inn}` : null].filter(Boolean).join(" · ")}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* Accounts */}
+        {linkedAccounts.length > 0 && (
+          <div>
+            <div style={{ fontSize: 10, fontWeight: 700, color: C.inkFaint, textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 6 }}>
+              Счета
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+              {linkedAccounts.map(a => {
+                const bal = Number(a.balance || 0);
+                return (
+                  <div key={a.id} style={{
+                    display: "flex", alignItems: "center", justifyContent: "space-between",
+                    padding: "7px 10px", background: C.surfaceAlt,
+                    borderRadius: 8, border: `1px solid ${C.border}`,
+                  }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      <span style={{ fontSize: 14 }}>🏦</span>
+                      <span style={{ fontSize: 12, fontWeight: 600, color: C.ink }}>{a.name}</span>
+                    </div>
+                    <span style={{ fontSize: 12, fontWeight: 700, color: bal >= 0 ? C.green : C.red, fontVariantNumeric: "tabular-nums" }}>
+                      {bal >= 0 ? "+" : ""}{bal.toLocaleString("ru-RU")} {a.currency || "UZS"}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* Notes */}
+        {item.notes && (
+          <div style={{
+            padding: "8px 12px", background: C.amberBg, borderRadius: 8,
+            border: `1px solid ${C.amberBorder}`,
+          }}>
+            <div style={{ fontSize: 10, fontWeight: 700, color: C.amber, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 3 }}>Заметки</div>
+            <div style={{ fontSize: 12, color: C.inkMid, lineHeight: 1.5 }}>{item.notes}</div>
+          </div>
+        )}
+      </div>
+
+      {/* Footer */}
+      <div style={{
+        padding: "10px 20px", borderTop: `1px solid ${C.border}`,
+        display: "flex", alignItems: "center", justifyContent: "space-between",
+        background: C.surfaceAlt,
+      }}>
+        <span style={{ fontSize: 11, color: C.inkFaint }}>
+          {linkedEntities.length} юрлиц · {linkedAccounts.length} счетов
+        </span>
+        {linkedAccounts.length > 0 && (
+          <span style={{ fontSize: 12, fontWeight: 800, color: totalBalance >= 0 ? C.green : C.red, fontVariantNumeric: "tabular-nums" }}>
+            Σ {totalBalance >= 0 ? "+" : ""}{totalBalance.toLocaleString("ru-RU")}
+          </span>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ─── Main Page ────────────────────────────────────────────────────────────────
+export default function BusinessDirections() {
+  const [directions, setDirections] = useState([]);
+  const [entities,   setEntities]   = useState([]);
+  const [accounts,   setAccounts]   = useState([]);
+  const [loading,    setLoading]    = useState(true);
+  const [modal,      setModal]      = useState(null);
+  const [search,     setSearch]     = useState("");
+  const [filterStatus, setFilterStatus] = useState("all");
+
+  const loadData = async () => {
+    setLoading(true);
+    const [p, e, a] = await Promise.all([
+      getDocs(userCol("projects")),
+      getDocs(userCol("legal_entities")),
+      getDocs(userCol("accounts")),
+    ]);
+    setDirections(p.docs.map(d => ({ id: d.id, ...d.data() })));
+    setEntities(e.docs.map(d => ({ id: d.id, ...d.data() })));
+    setAccounts(a.docs.map(d => ({ id: d.id, ...d.data() })));
+    setLoading(false);
+  };
+
+  useEffect(() => { loadData(); }, []);
+
+  const handleDelete = async (id) => {
+    if (!confirm("Удалить направление?")) return;
+    await deleteDoc(userDoc("projects", id));
+    setDirections(prev => prev.filter(d => d.id !== id));
+  };
+
+  const filtered = directions.filter(d => {
+    if (filterStatus !== "all" && (d.status || "active") !== filterStatus) return false;
+    if (search) {
+      const q = search.toLowerCase();
+      return d.name?.toLowerCase().includes(q) || d.description?.toLowerCase().includes(q) || d.location?.toLowerCase().includes(q);
+    }
+    return true;
+  });
+
+  const totalBalance = accounts.reduce((s, a) => s + Number(a.balance || 0), 0);
+  const activeCount  = directions.filter(d => (d.status || "active") === "active").length;
+
+  return (
+    <div style={{ fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif", minHeight: "100vh", background: C.bg, color: C.ink }}>
+      <style>{`* { box-sizing: border-box; }`}</style>
+
+      {modal?.mode === "create" && (
+        <DirectionModal entities={entities} accounts={accounts} onClose={() => setModal(null)} onSuccess={loadData} />
+      )}
+      {modal?.mode === "edit" && (
+        <DirectionModal initial={modal.item} entities={entities} accounts={accounts} onClose={() => setModal(null)} onSuccess={loadData} />
+      )}
+
+      {/* Header */}
+      <div style={{
+        background: C.surface, borderBottom: `1px solid ${C.border}`,
+        padding: "18px 40px",
+        display: "flex", alignItems: "center", justifyContent: "space-between",
+        flexWrap: "wrap", gap: 12,
+        position: "sticky", top: 0, zIndex: 100,
+        boxShadow: "0 1px 8px rgba(15,23,42,0.06)",
+      }}>
+        <div>
+          <h1 style={{ fontSize: 20, fontWeight: 800, margin: 0, letterSpacing: "-0.4px" }}>
+            Направления бизнеса
+          </h1>
+          <div style={{ fontSize: 12, color: C.inkFaint, marginTop: 2 }}>
+            {directions.length} направлений · {activeCount} активных
+          </div>
+        </div>
+
+        <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+          <div style={{ position: "relative" }}>
+            <svg style={{ position: "absolute", left: 9, top: "50%", transform: "translateY(-50%)", color: C.inkFaint, pointerEvents: "none" }} width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+              <circle cx="7" cy="7" r="5"/><path d="M11 11l3 3"/>
+            </svg>
+            <input value={search} onChange={e => setSearch(e.target.value)}
+              placeholder="Поиск…"
+              style={{ ...inpBase, paddingLeft: 28, width: 180 }}
+            />
+          </div>
+
+          <div style={{ display: "flex", gap: 4 }}>
+            {[["all", "Все"], ...STATUSES.map(s => [s.value, s.label])].map(([val, lbl]) => (
+              <button key={val} onClick={() => setFilterStatus(val)} style={{
+                padding: "7px 12px", borderRadius: 8, fontFamily: "inherit", fontSize: 12,
+                border: `1px solid ${filterStatus === val ? C.blue : C.border}`,
+                background: filterStatus === val ? C.blueBg : C.surface,
+                color: filterStatus === val ? C.blue : C.inkMid,
+                cursor: "pointer", fontWeight: filterStatus === val ? 700 : 400,
+              }}>{lbl}</button>
+            ))}
+          </div>
+
+          <button onClick={() => setModal({ mode: "create" })} style={{
+            fontFamily: "inherit", fontSize: 13, fontWeight: 700,
+            padding: "9px 20px", borderRadius: 8, border: "none",
+            background: C.blue, color: "#fff", cursor: "pointer",
+            display: "flex", alignItems: "center", gap: 6,
+          }}>
+            + Добавить направление
           </button>
         </div>
+      </div>
+
+      <div style={{ padding: "24px 40px 60px" }}>
+
+        {/* Stats */}
+        <div style={{ display: "flex", gap: 12, marginBottom: 24, flexWrap: "wrap" }}>
+          <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12, padding: "16px 22px", flex: 1, minWidth: 160 }}>
+            <div style={{ fontSize: 10, fontWeight: 700, color: C.inkFaint, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 6 }}>Всего направлений</div>
+            <div style={{ fontSize: 28, fontWeight: 800, color: C.ink }}>{directions.length}</div>
+          </div>
+          <div style={{ background: C.greenBg, border: `1px solid ${C.greenBorder}`, borderRadius: 12, padding: "16px 22px", flex: 1, minWidth: 160 }}>
+            <div style={{ fontSize: 10, fontWeight: 700, color: C.green, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 6, opacity: 0.7 }}>Активных</div>
+            <div style={{ fontSize: 28, fontWeight: 800, color: C.green }}>{activeCount}</div>
+          </div>
+          <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12, padding: "16px 22px", flex: 1, minWidth: 160 }}>
+            <div style={{ fontSize: 10, fontWeight: 700, color: C.inkFaint, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 6 }}>Юрлиц</div>
+            <div style={{ fontSize: 28, fontWeight: 800, color: C.inkMid }}>{entities.length}</div>
+          </div>
+          <div style={{ background: totalBalance >= 0 ? C.greenBg : C.redBg, border: `1px solid ${totalBalance >= 0 ? C.greenBorder : C.redBorder}`, borderRadius: 12, padding: "16px 22px", flex: 2, minWidth: 220 }}>
+            <div style={{ fontSize: 10, fontWeight: 700, color: totalBalance >= 0 ? C.green : C.red, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 6, opacity: 0.7 }}>Общий баланс по всем счетам</div>
+            <div style={{ fontSize: 22, fontWeight: 800, color: totalBalance >= 0 ? C.green : C.red, fontVariantNumeric: "tabular-nums" }}>
+              {totalBalance >= 0 ? "+" : ""}{totalBalance.toLocaleString("ru-RU")} UZS
+            </div>
+          </div>
+        </div>
+
+        {loading && (
+          <div style={{ textAlign: "center", padding: "60px 0", color: C.inkFaint }}>Загрузка…</div>
+        )}
+
+        {!loading && filtered.length === 0 && (
+          <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 14, padding: "70px 24px", textAlign: "center" }}>
+            <div style={{ fontSize: 48, marginBottom: 16 }}>🏢</div>
+            <div style={{ fontSize: 16, fontWeight: 700, color: C.inkMid, marginBottom: 8 }}>
+              {directions.length === 0 ? "Нет направлений бизнеса" : "Ничего не найдено"}
+            </div>
+            <div style={{ fontSize: 13, color: C.inkFaint, marginBottom: 20 }}>
+              {directions.length === 0
+                ? "Добавьте направления: гейм-клуб, ресторан, розница и т.д."
+                : "Попробуйте изменить фильтр или поиск"}
+            </div>
+            {directions.length === 0 && (
+              <button onClick={() => setModal({ mode: "create" })} style={{
+                fontFamily: "inherit", fontSize: 13, fontWeight: 700,
+                padding: "10px 24px", borderRadius: 8, border: "none",
+                background: C.blue, color: "#fff", cursor: "pointer",
+              }}>+ Добавить первое направление</button>
+            )}
+          </div>
+        )}
+
+        {!loading && filtered.length > 0 && (
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(340px, 1fr))", gap: 16 }}>
+            {filtered.map(item => (
+              <DirectionCard key={item.id} item={item}
+                entities={entities} accounts={accounts}
+                onEdit={item => setModal({ mode: "edit", item })}
+                onDelete={handleDelete}
+              />
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );
