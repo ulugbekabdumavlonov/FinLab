@@ -3,8 +3,9 @@ import { collection, getDocs, doc, setDoc, getDoc } from "firebase/firestore";
 import { auth, db } from "../firebase";
 import { useCurrency } from "./useCurrency";
 
-const userCol    = (name)     => collection(db, "users", auth.currentUser.uid, name);
-const userDocRef = (col, id)  => doc(db, "users", auth.currentUser.uid, col, id);
+const getCompanyId = () => window.__finlab_user?.companyId || auth.currentUser?.uid;
+const userCol    = (name)    => collection(db, "users", getCompanyId(), name);
+const userDocRef = (col, id) => doc(db, "users", getCompanyId(), col, id);
 
 // ─── Formatters ───────────────────────────────────────────────────────────────
 const fmt = (n) =>
@@ -547,11 +548,8 @@ export default function ProfitLoss() {
   return (
     <div style={{
       fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
-      maxWidth: 1100,
-      padding: isMobile ? "0.75rem" : "1.5rem 1rem",
+      width: "100%",
       color: C.ink,
-      background: C.surfaceAlt,
-      minHeight: "100vh",
     }}>
 
       {/* Title */}
