@@ -1,22 +1,20 @@
-import Sidebar from "./Sidebar";
+import Navbar from "./Navbar";
 import { Outlet } from "react-router-dom";
 
 export default function Layout() {
   return (
-    <div>
-      <Sidebar />
-
-      {/* 
-        На десктопе: отступ слева 260px (сайдбар фиксированный)
-        На мобильных: отступ сверху 56px (верхняя панель с бургером), нет отступа слева
+    <div className="min-h-screen bg-[#f8fafc]">
+      <Navbar />
+      {/*
+        pt-14       = отступ под фиксированным navbar (56px)
+        w-full      = на всю ширину экрана
+        px-4/6/8    = адаптивные боковые отступы по брейкпоинтам
       */}
-      <div className="
-        md:ml-[260px] md:pt-0
-        ml-0 pt-[56px]
-        min-h-screen bg-[#f8fafc] p-5
-      ">
-        <Outlet />
-      </div>
+      <main className="pt-14 w-full min-h-screen">
+        <div className="w-full px-4 sm:px-6 lg:px-8 xl:px-10 py-6">
+          <Outlet />
+        </div>
+      </main>
     </div>
   );
 }
