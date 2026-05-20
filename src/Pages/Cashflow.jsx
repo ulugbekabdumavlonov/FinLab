@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
-import { useAppStore } from "../useAppStore";
+import { useAppStore } from "../Pages/useAppStore";
 import { useCurrency } from "./useCurrency";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
