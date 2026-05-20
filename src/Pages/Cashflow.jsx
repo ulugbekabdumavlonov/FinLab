@@ -1,15 +1,13 @@
 import { useState, useEffect, useMemo } from "react";
-import { collection, getDocs } from "firebase/firestore";
-import { auth, db } from "../firebase";
+import { useAppStore } from "../useAppStore";
 import { useCurrency } from "./useCurrency";
 
-const userCol = (name) => collection(db, "users", auth.currentUser.uid, name);
-
+// ─── Helpers ──────────────────────────────────────────────────────────────────
 const fmt = (n) =>
   Math.abs(n).toLocaleString("ru-RU", { minimumFractionDigits: 0, maximumFractionDigits: 0 });
 
 const fmtSigned = (n, symbol) =>
-  (n >= 0 ? "+" : "−") + " " + fmt(n) + " " + symbol;
+  (n >= 0 ? "+" : "−") + " " + fmt(n);
 
 function normalizeDate(raw) {
   if (!raw) return null;
@@ -28,11 +26,26 @@ function normalize(str) {
 }
 
 const getSection = (tx, map) => {
-  const cat = normalize(tx.Category || tx.category || "");
+  const cat  = normalize(tx.Category || tx.category || "");
   const type = map[cat];
   if (type === "op" || type === "inv" || type === "fin") return type;
   return "fin";
 };
+
+const MONTH_NAMES_RU = ["Январь","Февраль","Март","Апрель","Май","Июнь","Июль","Август","Сентябрь","Октябрь","Ноябрь","Декабрь"];
+
+function getMonthsInRange(from, to) {
+  if (!from || !to) return [];
+  const result = [];
+  const start = new Date(from.slice(0, 7) + "-01");
+  const end   = new Date(to.slice(0, 7)   + "-01");
+  const cur   = new Date(start);
+  while (cur <= end) {
+    result.push({ year: cur.getFullYear(), month: cur.getMonth() });
+    cur.setMonth(cur.getMonth() + 1);
+  }
+  return result;
+}
 
 const C = {
   ink:        "#111827",
@@ -47,9 +60,14 @@ const C = {
   posBg:      "#f0fdf4",
   neg:        "#b91c1c",
   negBg:      "#fef2f2",
+  warn:       "#a16207",
+  warnBg:     "#fef9c3",
   accent:     "#2563eb",
   accentBg:   "#eff6ff",
 };
+
+// ширина прилипающего первого столбца
+const LABEL_COL_W = 220;
 
 function useIsMobile() {
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
@@ -86,8 +104,7 @@ function KpiCard({ label, value, pos }) {
     }}>
       <div style={{ fontSize: 11, color: C.inkLight, fontWeight: 400, marginBottom: 4 }}>{label}</div>
       <div style={{
-        fontSize: 16,
-        fontWeight: 400,
+        fontSize: 16, fontWeight: 400,
         color: pos ? C.pos : C.neg,
         fontVariantNumeric: "tabular-nums",
         letterSpacing: "-0.5px",
@@ -121,9 +138,9 @@ function TableHeader() {
 }
 
 function EntryRowDesktop({ tx }) {
-  const sum   = Number(tx.Sum ?? tx.amount ?? 0);
-  const isPos = sum >= 0;
-  const date  = tx._isoDate ? tx._isoDate.split("-").reverse().join(".") : "—";
+  const sum        = Number(tx.Sum ?? tx.amount ?? 0);
+  const isPos      = sum >= 0;
+  const date       = tx._isoDate ? tx._isoDate.split("-").reverse().join(".") : "—";
   const txCurrency = tx._accountCurrency || "UZS";
 
   return (
@@ -166,9 +183,9 @@ function EntryRowDesktop({ tx }) {
 }
 
 function EntryCardMobile({ tx }) {
-  const sum   = Number(tx.Sum ?? tx.amount ?? 0);
-  const isPos = sum >= 0;
-  const date  = tx._isoDate ? tx._isoDate.split("-").reverse().join(".") : "—";
+  const sum        = Number(tx.Sum ?? tx.amount ?? 0);
+  const isPos      = sum >= 0;
+  const date       = tx._isoDate ? tx._isoDate.split("-").reverse().join(".") : "—";
   const txCurrency = tx._accountCurrency || "UZS";
 
   return (
@@ -200,15 +217,13 @@ function EntryRow({ tx }) {
   return isMobile ? <EntryCardMobile tx={tx} /> : <EntryRowDesktop tx={tx} />;
 }
 
-// ─── SubGroup: "Поступления" или "Выплаты" внутри секции ─────────────────────
 function SubGroup({ label, transactions, symbol, isPos }) {
   const isMobile = useIsMobile();
-  const [open, setOpen] = useState(false);
+  const [open, setOpen]         = useState(false);
   const [showRows, setShowRows] = useState(false);
 
   const total = transactions.reduce((s, t) => s + Math.abs(Number(t._converted ?? t.Sum ?? t.amount ?? 0)), 0);
 
-  // Группировка по категориям
   const catMap = {};
   for (const tx of transactions) {
     const cat = tx.Category || tx.category || "Без категории";
@@ -216,12 +231,11 @@ function SubGroup({ label, transactions, symbol, isPos }) {
     if (!catMap[cat]) catMap[cat] = 0;
     catMap[cat] += sum;
   }
-  const cats = Object.entries(catMap).sort((a, b) => b[1] - a[1]);
+  const cats   = Object.entries(catMap).sort((a, b) => b[1] - a[1]);
   const maxVal = Math.max(...cats.map(([, v]) => v), 1);
 
   return (
     <div style={{ borderBottom: `1px solid ${C.border}` }}>
-      {/* Заголовок подгруппы */}
       <div
         onClick={() => setOpen(!open)}
         style={{
@@ -235,7 +249,6 @@ function SubGroup({ label, transactions, symbol, isPos }) {
           <span style={{
             fontSize: 11, width: 16, height: 16, display: "inline-flex", alignItems: "center", justifyContent: "center",
             border: `1px solid ${C.borderMid}`, borderRadius: 3, color: C.inkLight, flexShrink: 0,
-            transition: "transform 0.2s",
           }}>
             {open ? "−" : "+"}
           </span>
@@ -247,11 +260,10 @@ function SubGroup({ label, transactions, symbol, isPos }) {
           color: total === 0 ? C.inkLight : (isPos ? C.pos : C.neg),
           fontVariantNumeric: "tabular-nums",
         }}>
-          {total === 0 ? "—" : (isPos ? "+" : "−") + fmt(total) + " " + symbol}
+          {total === 0 ? "—" : (isPos ? "+" : "−") + fmt(total)}
         </span>
       </div>
 
-      {/* Категории */}
       {open && (
         <div>
           {cats.map(([name, val]) => {
@@ -280,7 +292,6 @@ function SubGroup({ label, transactions, symbol, isPos }) {
             );
           })}
 
-          {/* Показать транзакции */}
           <div
             onClick={() => setShowRows(!showRows)}
             style={{
@@ -309,7 +320,6 @@ function SubGroup({ label, transactions, symbol, isPos }) {
   );
 }
 
-// ─── Section ──────────────────────────────────────────────────────────────────
 function Section({ title, total, transactions, symbol }) {
   const isMobile = useIsMobile();
   const [open, setOpen] = useState(true);
@@ -319,7 +329,6 @@ function Section({ title, total, transactions, symbol }) {
 
   return (
     <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 8, overflow: "hidden", marginBottom: 8 }}>
-      {/* Заголовок секции */}
       <div
         onClick={() => setOpen(!open)}
         style={{
@@ -350,7 +359,6 @@ function Section({ title, total, transactions, symbol }) {
   );
 }
 
-// ─── Waterfall ────────────────────────────────────────────────────────────────
 function Waterfall({ op, inv, fin, symbol }) {
   const isMobile = useIsMobile();
   const net    = op + inv + fin;
@@ -397,14 +405,347 @@ function Waterfall({ op, inv, fin, symbol }) {
   );
 }
 
+// ─── MonthlyTable ─────────────────────────────────────────────────────────────
+function MonthlyTable({ months, filtered, categoryTypeMap, symbol }) {
+  const [openGroups, setOpenGroups] = useState(new Set());
+
+  const toggleGroup = (key) => {
+    setOpenGroups((prev) => {
+      const next = new Set(prev);
+      next.has(key) ? next.delete(key) : next.add(key);
+      return next;
+    });
+  };
+
+  const sumArr = (arr) => arr.reduce((s, t) => s + Number(t._converted ?? 0), 0);
+
+  const getTxs = (secKey, isPos, year, month) =>
+    filtered.filter((tx) => {
+      if (!tx._isoDate) return false;
+      const d = new Date(tx._isoDate + "T00:00:00");
+      if (d.getFullYear() !== year || d.getMonth() !== month) return false;
+      const sec = getSection(tx, categoryTypeMap);
+      if (sec !== secKey) return false;
+      const sum = Number(tx._converted ?? 0);
+      return isPos ? sum >= 0 : sum < 0;
+    });
+
+  const getCats = (secKey, isPos) => {
+    const catSet = new Set();
+    filtered.forEach((tx) => {
+      const sec = getSection(tx, categoryTypeMap);
+      if (sec !== secKey) return;
+      const sum = Number(tx._converted ?? 0);
+      if (isPos ? sum < 0 : sum >= 0) return;
+      catSet.add(tx.Category || tx.category || "Без категории");
+    });
+    return [...catSet].sort();
+  };
+
+  const colW = Math.max(120, Math.floor(700 / months.length));
+
+  // ── Общие стили для ячейки «Вид деятельности» (прилипающий первый столбец) ──
+  const labelCellBase = {
+    position: "sticky",
+    left: 0,
+    zIndex: 1,
+    width: LABEL_COL_W,
+    minWidth: LABEL_COL_W,
+    boxSizing: "border-box",
+    whiteSpace: "nowrap",          // ← текст в одну строку, не переносится
+    borderRight: `1px solid ${C.border}`,
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+  };
+
+  const SECTIONS = [
+    { key: "op",  label: "Операционная деятельность"  },
+    { key: "inv", label: "Инвестиционная деятельность" },
+    { key: "fin", label: "Финансовая деятельность"     },
+  ];
+
+  // ── Строка-заголовок секции / итоговая строка ──
+  const renderSectionHeader = (label, monthVals, isNet = false) => (
+    <div style={{
+      display: "flex",
+      borderBottom: `1px solid ${C.border}`,
+      background: isNet ? "#eff6ff" : C.surfaceAlt,
+    }}>
+      {/* Прилипающая ячейка с названием */}
+      <div style={{
+        ...labelCellBase,
+        padding: "10px 16px",
+        fontSize: 13,
+        fontWeight: 600,
+        color: isNet ? C.accent : C.ink,
+        background: isNet ? "#eff6ff" : C.surfaceAlt,
+      }}>
+        {label}
+      </div>
+
+      {/* Ячейки с суммами по месяцам */}
+      <div style={{ display: "flex" }}>
+        {monthVals.map(({ year, month, val }) => {
+          const color = val === 0 ? C.inkLight : val > 0 ? C.pos : C.neg;
+          return (
+            <div key={`${year}-${month}`} style={{
+              width: colW,
+              minWidth: colW,
+              padding: "10px 12px",
+              textAlign: "center",           // ← цифры по центру
+              fontSize: 13,
+              fontWeight: 600,
+              color: isNet ? (val >= 0 ? C.pos : C.neg) : color,
+              borderLeft: `1px solid ${C.border}`,
+              fontVariantNumeric: "tabular-nums",
+              boxSizing: "border-box",
+            }}>
+              {val === 0
+                ? <span style={{ color: C.inkFaint }}>—</span>
+                : (val > 0 ? "+" : "−") + fmt(val)}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+
+  // ── Строка-группа (Поступления / Выплаты) + строки категорий ──
+  const renderGroupRow = (groupKey, label, isPos, secKey) => {
+    const isOpen = openGroups.has(groupKey);
+    const cats   = getCats(secKey, isPos);
+
+    const monthVals = months.map(({ year, month }) => {
+      const txs = getTxs(secKey, isPos, year, month);
+      return { year, month, val: sumArr(txs) };
+    });
+
+    return (
+      <div key={groupKey}>
+        {/* Строка-заголовок группы (кликабельная) */}
+        <div
+          onClick={() => toggleGroup(groupKey)}
+          style={{
+            display: "flex",
+            borderBottom: `1px solid ${C.border}`,
+            cursor: "pointer",
+            background: C.surface,
+            transition: "background 0.1s",
+          }}
+          onMouseEnter={(e) => e.currentTarget.style.background = C.surfaceAlt}
+          onMouseLeave={(e) => e.currentTarget.style.background = C.surface}
+        >
+          {/* Прилипающая ячейка */}
+          <div style={{
+            ...labelCellBase,
+            padding: "8px 16px 8px 20px",
+            fontSize: 12,
+            fontWeight: 500,
+            color: C.inkMid,
+            background: C.surface,
+            display: "flex",
+            alignItems: "center",
+            gap: 6,
+          }}>
+            <span style={{
+              display: "inline-block",
+              fontSize: 10,
+              color: C.inkLight,
+              transition: "transform 0.2s",
+              transform: isOpen ? "rotate(90deg)" : "rotate(0deg)",
+              lineHeight: 1,
+              flexShrink: 0,
+            }}>▶</span>
+            {label}
+            <span style={{ fontSize: 11, color: C.inkLight, fontWeight: 400 }}>({cats.length})</span>
+          </div>
+
+          {/* Ячейки с суммами */}
+          <div style={{ display: "flex" }}>
+            {monthVals.map(({ year, month, val }) => {
+              const color = val === 0 ? C.inkLight : isPos ? C.pos : C.neg;
+              return (
+                <div key={`${year}-${month}`} style={{
+                  width: colW,
+                  minWidth: colW,
+                  padding: "8px 12px",
+                  textAlign: "center",         // ← цифры по центру
+                  fontSize: 12,
+                  fontWeight: 500,
+                  color,
+                  borderLeft: `1px solid ${C.border}`,
+                  fontVariantNumeric: "tabular-nums",
+                  boxSizing: "border-box",
+                }}>
+                  {val === 0
+                    ? <span style={{ color: C.inkFaint }}>—</span>
+                    : (isPos ? "+" : "−") + fmt(Math.abs(val))}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Строки категорий (раскрываются) */}
+        {isOpen && cats.map((cat) => {
+          const catMonthVals = months.map(({ year, month }) => {
+            const txs = getTxs(secKey, isPos, year, month).filter(
+              (tx) => (tx.Category || tx.category || "Без категории") === cat
+            );
+            return { year, month, val: sumArr(txs) };
+          });
+
+          return (
+            <div key={cat} style={{
+              display: "flex",
+              borderBottom: `1px solid ${C.border}`,
+              background: isPos ? C.posBg : C.negBg,
+            }}>
+              {/* Прилипающая ячейка категории */}
+              <div style={{
+                ...labelCellBase,
+                padding: "7px 16px 7px 36px",
+                fontSize: 12,
+                color: C.inkMid,
+                background: isPos ? C.posBg : C.negBg,
+              }}>
+                {cat}
+              </div>
+
+              {/* Ячейки с суммами */}
+              <div style={{ display: "flex" }}>
+                {catMonthVals.map(({ year, month, val }) => (
+                  <div key={`${year}-${month}`} style={{
+                    width: colW,
+                    minWidth: colW,
+                    padding: "7px 12px",
+                    textAlign: "center",       // ← цифры по центру
+                    fontSize: 12,
+                    color: val === 0 ? C.inkFaint : isPos ? C.pos : C.neg,
+                    borderLeft: `1px solid ${C.border}`,
+                    fontVariantNumeric: "tabular-nums",
+                    boxSizing: "border-box",
+                  }}>
+                    {val === 0
+                      ? "—"
+                      : (isPos ? "+" : "−") + fmt(Math.abs(val))}
+                  </div>
+                ))}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    );
+  };
+
+  const getSectionMonthVals = (secKey) =>
+    months.map(({ year, month }) => {
+      const txs = filtered.filter((tx) => {
+        if (!tx._isoDate) return false;
+        const d = new Date(tx._isoDate + "T00:00:00");
+        return d.getFullYear() === year && d.getMonth() === month && getSection(tx, categoryTypeMap) === secKey;
+      });
+      return { year, month, val: sumArr(txs) };
+    });
+
+  const getNetMonthVals = () =>
+    months.map(({ year, month }) => {
+      const txs = filtered.filter((tx) => {
+        if (!tx._isoDate) return false;
+        const d = new Date(tx._isoDate + "T00:00:00");
+        return d.getFullYear() === year && d.getMonth() === month;
+      });
+      return { year, month, val: sumArr(txs) };
+    });
+
+  return (
+    <div style={{
+      background: C.surface,
+      border: `1px solid ${C.border}`,
+      borderRadius: 8,
+      overflow: "hidden",
+      marginBottom: 8,
+    }}>
+      <div style={{ overflowX: "auto" }}>
+        <div style={{ minWidth: LABEL_COL_W + months.length * colW }}>
+
+          {/* Шапка с месяцами */}
+          <div style={{
+            display: "flex",
+            background: C.surfaceAlt,
+            borderBottom: `2px solid ${C.border}`,
+            position: "sticky",
+            top: 0,
+            zIndex: 3,
+          }}>
+            {/* Прилипающая ячейка шапки */}
+            <div style={{
+              ...labelCellBase,
+              padding: "10px 16px",
+              fontSize: 10,
+              fontWeight: 600,
+              color: C.inkLight,
+              textTransform: "uppercase",
+              letterSpacing: "0.06em",
+              background: C.surfaceAlt,
+              zIndex: 3,
+            }}>
+              Вид деятельности
+            </div>
+
+            {/* Заголовки месяцев */}
+            <div style={{ display: "flex" }}>
+              {months.map(({ year, month }) => (
+                <div key={`${year}-${month}`} style={{
+                  width: colW,
+                  minWidth: colW,
+                  padding: "10px 12px",
+                  fontSize: 10,
+                  fontWeight: 600,
+                  color: C.inkLight,
+                  textTransform: "uppercase",
+                  letterSpacing: "0.06em",
+                  textAlign: "center",         // ← заголовки месяцев тоже по центру
+                  borderLeft: `1px solid ${C.border}`,
+                  boxSizing: "border-box",
+                }}>
+                  {MONTH_NAMES_RU[month]} {year}
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Секции */}
+          {SECTIONS.map((sec) => (
+            <div key={sec.key}>
+              {renderSectionHeader(sec.label, getSectionMonthVals(sec.key))}
+              {renderGroupRow(`${sec.key}_in`,  "Поступления", true,  sec.key)}
+              {renderGroupRow(`${sec.key}_out`, "Выплаты",     false, sec.key)}
+            </div>
+          ))}
+
+          {/* Чистый поток */}
+          {renderSectionHeader("Чистый поток", getNetMonthVals(), true)}
+
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── Main ─────────────────────────────────────────────────────────────────────
 export default function CashFlow() {
   const isMobile = useIsMobile();
 
-  const [transactions,     setTransactions]     = useState([]);
-  const [categoryTypeMap,  setCategoryTypeMap]  = useState({});
-  const [loading,          setLoading]          = useState(true);
-  const [error,            setError]            = useState(null);
+  const {
+    transactions: rawTransactions,
+    accounts,
+    categoryTypeMap,
+    accountCurrencyMap,
+    loading: storeLoading,
+    error: storeError,
+  } = useAppStore();
 
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo,   setDateTo]   = useState("");
@@ -418,8 +759,8 @@ export default function CashFlow() {
   const applyPeriod = (p) => {
     setPeriod(p);
     const now = new Date();
-    const y = now.getFullYear();
-    const m = now.getMonth();
+    const y   = now.getFullYear();
+    const m   = now.getMonth();
     const pad = (n) => String(n).padStart(2, "0");
     const lastDay = (yr, mo) => new Date(yr, mo + 1, 0).getDate();
     if (p === "month") { setDateFrom(`${y}-${pad(m+1)}-01`); setDateTo(`${y}-${pad(m+1)}-${lastDay(y,m)}`); }
@@ -431,61 +772,25 @@ export default function CashFlow() {
     if (p === "all")   { setDateFrom(""); setDateTo(""); }
   };
 
-  useEffect(() => {
-    (async () => {
-      try {
-        const [txSnap, accSnap, catSnap] = await Promise.all([
-          getDocs(userCol("transactions")),
-          getDocs(userCol("accounts")),
-          getDocs(userCol("operation_categories")),
-        ]);
+  const transactions = useMemo(() =>
+    rawTransactions.map((tx) => ({
+      ...tx,
+      _isoDate:         tx._isoDate || normalizeDate(tx.Date || tx.date || ""),
+      _accountCurrency: accountCurrencyMap[tx.Account || tx.walletName || ""] || tx._accountCurrency || "UZS",
+    })),
+    [rawTransactions, accountCurrencyMap]
+  );
 
-        const accountCurrencyMap = {};
-        accSnap.docs.forEach((d) => {
-          const data = d.data();
-          if (data.name) accountCurrencyMap[data.name] = data.currency || "UZS";
-        });
-
-        const catTypeMap = {};
-        catSnap.docs.forEach((d) => {
-          const data = d.data();
-          if (data.name && data.type) {
-            const key = normalize(data.name);
-            catTypeMap[key] = data.type;
-          }
-        });
-        setCategoryTypeMap(catTypeMap);
-
-        const txs = txSnap.docs.map((d) => {
-          const data = d.data();
-          const accountName     = data.Account || data.walletName || "";
-          const accountCurrency = accountCurrencyMap[accountName] || "UZS";
-          return {
-            ...data,
-            id: d.id,
-            _isoDate:         normalizeDate(data.Date || data.date || ""),
-            _accountCurrency: accountCurrency,
-          };
-        });
-
-        setTransactions(txs);
-      } catch (e) {
-        setError(e.message);
-      } finally {
-        setLoading(false);
-      }
-    })();
-  }, []);
-
-  const transactionsWithConversion = useMemo(() => {
-    return transactions.map((tx) => ({
+  const transactionsWithConversion = useMemo(() =>
+    transactions.map((tx) => ({
       ...tx,
       _converted: convert(
         Number(tx.Sum ?? tx.amount ?? 0),
         tx._accountCurrency || "UZS"
       ),
-    }));
-  }, [transactions, convert]);
+    })),
+    [transactions, convert]
+  );
 
   const projectNames = useMemo(() =>
     ["all", ...[...new Set(transactionsWithConversion.map((t) => t.Project || t.direction).filter(Boolean))].sort()],
@@ -505,14 +810,17 @@ export default function CashFlow() {
     return true;
   }), [transactionsWithConversion, dateFrom, dateTo, project, account, category, categoryTypeMap]);
 
-  const sumArr  = (arr) => arr.reduce((s, t) => s + Number(t._converted ?? 0), 0);
-  const opTxs   = filtered.filter((t) => getSection(t, categoryTypeMap) === "op");
-  const invTxs  = filtered.filter((t) => getSection(t, categoryTypeMap) === "inv");
-  const finTxs  = filtered.filter((t) => getSection(t, categoryTypeMap) === "fin");
+  const sumArr   = (arr) => arr.reduce((s, t) => s + Number(t._converted ?? 0), 0);
+  const opTxs    = filtered.filter((t) => getSection(t, categoryTypeMap) === "op");
+  const invTxs   = filtered.filter((t) => getSection(t, categoryTypeMap) === "inv");
+  const finTxs   = filtered.filter((t) => getSection(t, categoryTypeMap) === "fin");
   const opTotal  = sumArr(opTxs);
   const invTotal = sumArr(invTxs);
   const finTotal = sumArr(finTxs);
   const netTotal = opTotal + invTotal + finTotal;
+
+  const months      = useMemo(() => getMonthsInRange(dateFrom, dateTo), [dateFrom, dateTo]);
+  const showMonthly = months.length >= 2;
 
   const SECTIONS = [
     { key: "op",  title: "Операционная деятельность",  total: opTotal,  txs: opTxs  },
@@ -529,19 +837,15 @@ export default function CashFlow() {
     width: isMobile ? "100%" : 130,
   };
 
-  const isLoading = loading || currencyLoading;
+  const isLoading = storeLoading || currencyLoading;
 
   return (
     <div style={{
       fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
-      maxWidth: 1100,
-      padding: isMobile ? "0.75rem" : "1.5rem 1rem",
+      width: "100%",
       color: C.ink,
-      background: C.surfaceAlt,
-      minHeight: "100vh",
     }}>
 
-      {/* Title */}
       <div style={{ marginBottom: "1rem" }}>
         <h1 style={{ fontSize: isMobile ? 17 : 20, fontWeight: 600, letterSpacing: -0.3, margin: 0, color: C.ink }}>
           Движение денежных средств
@@ -556,7 +860,6 @@ export default function CashFlow() {
       {/* Filter bar */}
       <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 10, padding: "16px 20px", marginBottom: 14 }}>
         <div style={{ display: "flex", flexWrap: "wrap", gap: 20, alignItems: "flex-end" }}>
-
           <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
             <div style={{ fontSize: 9, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.1em", color: C.inkLight }}>Период</div>
             <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
@@ -572,7 +875,7 @@ export default function CashFlow() {
 
           <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
             <div style={{ fontSize: 9, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.1em", color: C.inkLight }}>Быстро</div>
-            <div style={{ display: "flex", gap: 4 }}>
+            <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
               {[["all","Все"],["month","Месяц"],["q1","Q1"],["q2","Q2"],["q3","Q3"],["q4","Q4"],["year","Год"]].map(([val, lbl]) => (
                 <Pill key={val} label={lbl} active={period === val} onClick={() => applyPeriod(val)} />
               ))}
@@ -581,7 +884,7 @@ export default function CashFlow() {
 
           <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
             <div style={{ fontSize: 9, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.1em", color: C.inkLight }}>Деятельность</div>
-            <div style={{ display: "flex", gap: 4 }}>
+            <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
               {[["all","Все"],["op","Операционная"],["inv","Инвестиционная"],["fin","Финансовая"]].map(([val, lbl]) => (
                 <Pill key={val} label={lbl} active={category === val} onClick={() => setCategory(val)} />
               ))}
@@ -612,7 +915,7 @@ export default function CashFlow() {
         </div>
       </div>
 
-      {/* KPI row */}
+      {/* KPI */}
       <div style={{
         display: "grid",
         gridTemplateColumns: isMobile ? "repeat(2, 1fr)" : "repeat(4, 1fr)",
@@ -622,24 +925,36 @@ export default function CashFlow() {
         overflow: "hidden",
         marginBottom: 10,
       }}>
-        <KpiCard label="Операционный поток"   value={fmtSigned(opTotal, symbol)}  pos={opTotal  >= 0} />
+        <KpiCard label="Операционный поток"   value={fmtSigned(opTotal,  symbol)} pos={opTotal  >= 0} />
         <KpiCard label="Инвестиционный поток"  value={fmtSigned(invTotal, symbol)} pos={invTotal >= 0} />
         <KpiCard label="Финансовый поток"      value={fmtSigned(finTotal, symbol)} pos={finTotal >= 0} />
         <KpiCard label="Чистый поток"          value={fmtSigned(netTotal, symbol)} pos={netTotal >= 0} />
       </div>
 
-      {error && (
+      {storeError && (
         <div style={{ padding: "10px 14px", background: C.negBg, border: `0.5px solid ${C.neg}`, borderRadius: 6, color: C.neg, fontSize: 13, marginBottom: 10 }}>
-          Ошибка загрузки: {error}
+          Ошибка загрузки: {storeError}
         </div>
       )}
+
       {isLoading && (
         <div style={{ textAlign: "center", padding: "40px 0", color: C.inkLight, fontSize: 13 }}>
           Загрузка данных…
         </div>
       )}
 
-      {!isLoading && visibleSections.map((sec) => (
+      {/* Таблица по месяцам */}
+      {!isLoading && showMonthly && (
+        <MonthlyTable
+          months={months}
+          filtered={filtered}
+          categoryTypeMap={categoryTypeMap}
+          symbol={symbol}
+        />
+      )}
+
+      {/* Обычные секции */}
+      {!isLoading && !showMonthly && visibleSections.map((sec) => (
         <Section key={sec.key} title={sec.title} total={sec.total} transactions={sec.txs} symbol={symbol} />
       ))}
 
