@@ -1,13 +1,11 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useAppStore } from "../Pages/useAppStore";
 import { useCurrency } from "./useCurrency";
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
 const fmt = (n) =>
   Math.abs(n).toLocaleString("ru-RU", { minimumFractionDigits: 0, maximumFractionDigits: 0 });
 
-const fmtSigned = (n, symbol) =>
-  (n >= 0 ? "+" : "−") + " " + fmt(n);
+const fmtSigned = (n) => (n >= 0 ? "+" : "−") + " " + fmt(n);
 
 function normalizeDate(raw) {
   if (!raw) return null;
@@ -21,9 +19,7 @@ function normalizeDate(raw) {
   return null;
 }
 
-function normalize(str) {
-  return (str || "").trim().toLowerCase();
-}
+function normalize(str) { return (str || "").trim().toLowerCase(); }
 
 const getSection = (tx, map) => {
   const cat  = normalize(tx.Category || tx.category || "");
@@ -32,7 +28,8 @@ const getSection = (tx, map) => {
   return "fin";
 };
 
-const MONTH_NAMES_RU = ["Январь","Февраль","Март","Апрель","Май","Июнь","Июль","Август","Сентябрь","Октябрь","Ноябрь","Декабрь"];
+// ✅ ИЗМЕНЕНИЕ 1: Короткие названия месяцев
+const MONTH_NAMES_RU = ["Янв","Фев","Мар","Апр","Май","Июн","Июл","Авг","Сен","Окт","Ноя","Дек"];
 
 function getMonthsInRange(from, to) {
   if (!from || !to) return [];
@@ -48,26 +45,17 @@ function getMonthsInRange(from, to) {
 }
 
 const C = {
-  ink:        "#111827",
-  inkMid:     "#374151",
-  inkLight:   "#9ca3af",
-  inkFaint:   "#d1d5db",
-  surface:    "#ffffff",
-  surfaceAlt: "#f9fafb",
-  border:     "#e5e7eb",
-  borderMid:  "#d1d5db",
-  pos:        "#15803d",
-  posBg:      "#f0fdf4",
-  neg:        "#b91c1c",
-  negBg:      "#fef2f2",
-  warn:       "#a16207",
-  warnBg:     "#fef9c3",
-  accent:     "#2563eb",
-  accentBg:   "#eff6ff",
+  ink: "#111827", inkMid: "#374151", inkLight: "#9ca3af", inkFaint: "#d1d5db",
+  surface: "#ffffff", surfaceAlt: "#f9fafb",
+  border: "#e5e7eb", borderMid: "#d1d5db",
+  pos: "#15803d", posBg: "#f0fdf4",
+  neg: "#b91c1c", negBg: "#fef2f2",
+  accent: "#2563eb", accentBg: "#eff6ff",
 };
 
-// ширина прилипающего первого столбца
-const LABEL_COL_W = 220;
+// ─── Размеры ──────────────────────────────────────────────────────────────────
+const LEFT_COL_W = 260; // ширина sticky левой колонки
+const COL_W      = 130; // ширина каждой колонки месяца/итого
 
 function useIsMobile() {
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
@@ -96,40 +84,139 @@ function Pill({ label, active, onClick }) {
 
 function KpiCard({ label, value, pos }) {
   return (
-    <div style={{
-      background: C.surface,
-      padding: "12px 16px",
-      borderRight: `1px solid ${C.border}`,
-      borderBottom: `1px solid ${C.border}`,
-    }}>
+    <div style={{ background: C.surface, padding: "12px 16px", borderRight: `1px solid ${C.border}`, borderBottom: `1px solid ${C.border}` }}>
       <div style={{ fontSize: 11, color: C.inkLight, fontWeight: 400, marginBottom: 4 }}>{label}</div>
-      <div style={{
-        fontSize: 16, fontWeight: 400,
-        color: pos ? C.pos : C.neg,
-        fontVariantNumeric: "tabular-nums",
-        letterSpacing: "-0.5px",
-      }}>
+      <div style={{ fontSize: 16, fontWeight: 400, color: pos ? C.pos : C.neg, fontVariantNumeric: "tabular-nums", letterSpacing: "-0.5px" }}>
         {value}
       </div>
     </div>
   );
 }
 
+// ─── Строка таблицы: sticky левая ячейка + прокручиваемые правые ─────────────
+function TableRow({ leftContent, rightContent, rowStyle = {}, leftStyle = {}, showMonths, months }) {
+  return (
+    <div style={{ display: "flex", alignItems: "stretch", ...rowStyle }}>
+      {/* STICKY левая колонка */}
+      <div style={{
+        position: "sticky", left: 0, zIndex: 2,
+        width: LEFT_COL_W, minWidth: LEFT_COL_W, flexShrink: 0,
+        boxSizing: "border-box",
+        background: rowStyle.background || C.surface,
+        ...leftStyle,
+      }}>
+        {leftContent}
+      </div>
+
+      {/* Правая прокручиваемая часть */}
+      {showMonths && rightContent}
+    </div>
+  );
+}
+
+// ─── Шапка месяцев ────────────────────────────────────────────────────────────
+function MonthsHeaderRow({ months, filtered }) {
+  const sumForMonth = (year, month) =>
+    filtered
+      .filter((tx) => {
+        if (!tx._isoDate) return false;
+        const d = new Date(tx._isoDate + "T00:00:00");
+        return d.getFullYear() === year && d.getMonth() === month;
+      })
+      .reduce((s, t) => s + Number(t._converted ?? 0), 0);
+
+  const totalAll = filtered.reduce((s, t) => s + Number(t._converted ?? 0), 0);
+
+  return (
+    <div style={{ display: "flex", alignItems: "stretch", background: C.surface, borderBottom: `1px solid ${C.border}` }}>
+      {/* Sticky левая */}
+      <div style={{
+        position: "sticky", left: 0, zIndex: 2,
+        width: LEFT_COL_W, minWidth: LEFT_COL_W, flexShrink: 0,
+        padding: "10px 16px", boxSizing: "border-box",
+        background: C.surface,
+        fontSize: 10, fontWeight: 600, textTransform: "uppercase",
+        letterSpacing: "0.08em", color: C.inkLight,
+        display: "flex", alignItems: "center",
+      }}>
+        Чистый поток по месяцам
+      </div>
+
+      {/* Колонки месяцев */}
+      {months.map(({ year, month }) => {
+        const val = sumForMonth(year, month);
+        return (
+          <div key={`${year}-${month}`} style={{
+            width: COL_W, minWidth: COL_W, flexShrink: 0,
+            padding: "8px 6px", display: "flex", flexDirection: "column",
+            alignItems: "center", gap: 3, boxSizing: "border-box",
+          }}>
+            {/* ✅ ИЗМЕНЕНИЕ 2: Крупнее и короче название месяца */}
+            <span style={{ fontSize: 13, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.04em", color: C.inkMid, whiteSpace: "nowrap" }}>
+              {MONTH_NAMES_RU[month]} {year}
+            </span>
+            <span style={{ fontSize: 14, fontWeight: 500, color: val === 0 ? C.inkFaint : val > 0 ? C.pos : C.neg, fontVariantNumeric: "tabular-nums" }}>
+              {val === 0 ? "—" : (val > 0 ? "+" : "−") + fmt(Math.abs(val))}
+            </span>
+          </div>
+        );
+      })}
+
+      {/* Итого */}
+      <div style={{
+        width: COL_W, minWidth: COL_W, flexShrink: 0,
+        background: C.accentBg,
+        padding: "8px 6px", display: "flex", flexDirection: "column",
+        alignItems: "center", gap: 3, boxSizing: "border-box",
+      }}>
+        <span style={{ fontSize: 13, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.04em", color: C.accent }}>Итого</span>
+        <span style={{ fontSize: 14, fontWeight: 600, color: totalAll >= 0 ? C.pos : C.neg, fontVariantNumeric: "tabular-nums" }}>
+          {totalAll === 0 ? "—" : (totalAll > 0 ? "+" : "−") + fmt(Math.abs(totalAll))}
+        </span>
+      </div>
+    </div>
+  );
+}
+
+// ─── Ячейки значений месяцев (правая часть строки) ───────────────────────────
+function MonthValueCells({ monthVals, total, isPos, highlightTotal = true }) {
+  const totalColor = total === 0 ? C.inkFaint : (isPos ? C.pos : C.neg);
+  return (
+    <>
+      {monthVals.map(({ year, month, val }) => (
+        <div key={`${year}-${month}`} style={{
+          width: COL_W, minWidth: COL_W, flexShrink: 0,
+          display: "flex", alignItems: "center", justifyContent: "center",
+          fontSize: 12, fontWeight: 500,
+          color: val === 0 ? C.inkFaint : (isPos ? C.pos : C.neg),
+          fontVariantNumeric: "tabular-nums",
+          boxSizing: "border-box",
+        }}>
+          {val === 0 ? "—" : (isPos ? "+" : "−") + fmt(Math.abs(val))}
+        </div>
+      ))}
+      {/* ✅ ИЗМЕНЕНИЕ 3: Убран синий фон у итоговой колонки в строках */}
+      <div style={{
+        width: COL_W, minWidth: COL_W, flexShrink: 0,
+        display: "flex", alignItems: "center", justifyContent: "center",
+        fontSize: 12, fontWeight: 600,
+        color: totalColor,
+        fontVariantNumeric: "tabular-nums",
+        background: "transparent",
+        boxSizing: "border-box",
+      }}>
+        {total === 0 ? "—" : (isPos ? "+" : "−") + fmt(Math.abs(total))}
+      </div>
+    </>
+  );
+}
+
+// ─── Заголовок таблицы транзакций ─────────────────────────────────────────────
 function TableHeader() {
   return (
-    <div style={{
-      display: "grid",
-      gridTemplateColumns: "90px 1fr 150px 120px 110px",
-      padding: "6px 16px",
-      borderBottom: `1px solid ${C.border}`,
-      background: C.surfaceAlt,
-    }}>
+    <div style={{ display: "grid", gridTemplateColumns: "90px 1fr 150px 120px 110px", padding: "6px 16px", borderBottom: `1px solid ${C.border}`, background: C.surfaceAlt }}>
       {["Дата", "Контрагент / Детали", "Статья", "Проект", "Сумма"].map((h, i) => (
-        <div key={h} style={{
-          fontSize: 10, fontWeight: 500,
-          textTransform: "uppercase", letterSpacing: "0.06em",
-          color: C.inkLight, textAlign: i === 4 ? "right" : "left",
-        }}>
+        <div key={h} style={{ fontSize: 10, fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.06em", color: C.inkLight, textAlign: i === 4 ? "right" : "left" }}>
           {h}
         </div>
       ))}
@@ -138,43 +225,23 @@ function TableHeader() {
 }
 
 function EntryRowDesktop({ tx }) {
-  const sum        = Number(tx.Sum ?? tx.amount ?? 0);
-  const isPos      = sum >= 0;
-  const date       = tx._isoDate ? tx._isoDate.split("-").reverse().join(".") : "—";
+  const sum = Number(tx.Sum ?? tx.amount ?? 0);
+  const isPos = sum >= 0;
+  const date = tx._isoDate ? tx._isoDate.split("-").reverse().join(".") : "—";
   const txCurrency = tx._accountCurrency || "UZS";
-
   return (
     <div
-      style={{
-        display: "grid",
-        gridTemplateColumns: "90px 1fr 150px 120px 110px",
-        padding: "8px 16px",
-        borderBottom: `1px solid ${C.border}`,
-        alignItems: "center",
-        fontSize: 13,
-        cursor: "default",
-        transition: "background 0.1s",
-      }}
+      style={{ display: "grid", gridTemplateColumns: "90px 1fr 150px 120px 110px", padding: "8px 16px", borderBottom: `1px solid ${C.border}`, alignItems: "center", fontSize: 13, cursor: "default", transition: "background 0.1s" }}
       onMouseEnter={(e) => e.currentTarget.style.background = C.surfaceAlt}
       onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}
     >
       <div style={{ color: C.inkLight, fontSize: 12 }}>{date}</div>
       <div style={{ overflow: "hidden" }}>
-        <div style={{ fontWeight: 500, color: C.ink, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-          {tx.Counterparty || tx.counterparty || "—"}
-        </div>
-        <div style={{ fontSize: 11, color: C.inkLight, marginTop: 1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-          {tx.Details || tx.description || ""}
-        </div>
+        <div style={{ fontWeight: 500, color: C.ink, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{tx.Counterparty || tx.counterparty || "—"}</div>
+        <div style={{ fontSize: 11, color: C.inkLight, marginTop: 1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{tx.Details || tx.description || ""}</div>
       </div>
-      <div>
-        <span style={{ fontSize: 11, padding: "2px 8px", borderRadius: 4, background: C.surfaceAlt, color: C.inkMid, border: `1px solid ${C.border}`, whiteSpace: "nowrap" }}>
-          {tx.Category || tx.category || "—"}
-        </span>
-      </div>
-      <div style={{ fontSize: 12, color: C.inkMid, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-        {tx.Project || tx.direction || "—"}
-      </div>
+      <div><span style={{ fontSize: 11, padding: "2px 8px", borderRadius: 4, background: C.surfaceAlt, color: C.inkMid, border: `1px solid ${C.border}`, whiteSpace: "nowrap" }}>{tx.Category || tx.category || "—"}</span></div>
+      <div style={{ fontSize: 12, color: C.inkMid, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{tx.Project || tx.direction || "—"}</div>
       <div style={{ textAlign: "right", fontWeight: 500, color: isPos ? C.pos : C.neg, whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" }}>
         {isPos ? "+" : "−"}{fmt(sum)} {txCurrency}
       </div>
@@ -183,27 +250,15 @@ function EntryRowDesktop({ tx }) {
 }
 
 function EntryCardMobile({ tx }) {
-  const sum        = Number(tx.Sum ?? tx.amount ?? 0);
-  const isPos      = sum >= 0;
-  const date       = tx._isoDate ? tx._isoDate.split("-").reverse().join(".") : "—";
+  const sum = Number(tx.Sum ?? tx.amount ?? 0);
+  const isPos = sum >= 0;
+  const date = tx._isoDate ? tx._isoDate.split("-").reverse().join(".") : "—";
   const txCurrency = tx._accountCurrency || "UZS";
-
   return (
-    <div style={{
-      padding: "10px 14px",
-      borderBottom: `1px solid ${C.border}`,
-      display: "flex",
-      justifyContent: "space-between",
-      alignItems: "flex-start",
-      gap: 10,
-    }}>
+    <div style={{ padding: "10px 14px", borderBottom: `1px solid ${C.border}`, display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 10 }}>
       <div style={{ flex: 1, overflow: "hidden" }}>
-        <div style={{ fontWeight: 500, color: C.ink, fontSize: 13, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-          {tx.Counterparty || tx.counterparty || "—"}
-        </div>
-        <div style={{ fontSize: 11, color: C.inkLight, marginTop: 2 }}>
-          {date} · {tx.Category || tx.category || "—"}
-        </div>
+        <div style={{ fontWeight: 500, color: C.ink, fontSize: 13, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{tx.Counterparty || tx.counterparty || "—"}</div>
+        <div style={{ fontSize: 11, color: C.inkLight, marginTop: 2 }}>{date} · {tx.Category || tx.category || "—"}</div>
       </div>
       <div style={{ fontWeight: 600, color: isPos ? C.pos : C.neg, fontSize: 13, whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" }}>
         {isPos ? "+" : "−"}{fmt(sum)} {txCurrency}
@@ -217,7 +272,8 @@ function EntryRow({ tx }) {
   return isMobile ? <EntryCardMobile tx={tx} /> : <EntryRowDesktop tx={tx} />;
 }
 
-function SubGroup({ label, transactions, symbol, isPos }) {
+// ─── SubGroup — строки Поступления / Выплаты ──────────────────────────────────
+function SubGroup({ label, transactions, symbol, isPos, months, showMonths }) {
   const isMobile = useIsMobile();
   const [open, setOpen]         = useState(false);
   const [showRows, setShowRows] = useState(false);
@@ -227,86 +283,135 @@ function SubGroup({ label, transactions, symbol, isPos }) {
   const catMap = {};
   for (const tx of transactions) {
     const cat = tx.Category || tx.category || "Без категории";
-    const sum = Math.abs(Number(tx._converted ?? tx.Sum ?? tx.amount ?? 0));
-    if (!catMap[cat]) catMap[cat] = 0;
-    catMap[cat] += sum;
+    const val = Math.abs(Number(tx._converted ?? tx.Sum ?? tx.amount ?? 0));
+    catMap[cat] = (catMap[cat] || 0) + val;
   }
   const cats   = Object.entries(catMap).sort((a, b) => b[1] - a[1]);
   const maxVal = Math.max(...cats.map(([, v]) => v), 1);
 
+  const sumGroupForMonth = (year, month) =>
+    transactions
+      .filter((tx) => {
+        if (!tx._isoDate) return false;
+        const d = new Date(tx._isoDate + "T00:00:00");
+        return d.getFullYear() === year && d.getMonth() === month;
+      })
+      .reduce((s, t) => s + Math.abs(Number(t._converted ?? t.Sum ?? t.amount ?? 0)), 0);
+
+  const sumCatForMonth = (cat, year, month) =>
+    transactions
+      .filter((tx) => {
+        if (!tx._isoDate) return false;
+        const d = new Date(tx._isoDate + "T00:00:00");
+        return d.getFullYear() === year && d.getMonth() === month &&
+          (tx.Category || tx.category || "Без категории") === cat;
+      })
+      .reduce((s, t) => s + Math.abs(Number(t._converted ?? t.Sum ?? t.amount ?? 0)), 0);
+
+  const monthVals = showMonths
+    ? months.map(({ year, month }) => ({ year, month, val: sumGroupForMonth(year, month) }))
+    : [];
+
+  const ROW_H = 38;
+
   return (
-    <div style={{ borderBottom: `1px solid ${C.border}` }}>
+    <>
+      {/* ── Строка-заголовок субгруппы ── */}
       <div
         onClick={() => setOpen(!open)}
-        style={{
-          display: "flex", alignItems: "center", justifyContent: "space-between",
-          padding: isMobile ? "8px 14px" : "8px 16px",
-          cursor: "pointer", userSelect: "none",
-          background: C.surfaceAlt,
-        }}
+        style={{ display: "flex", alignItems: "stretch", cursor: "pointer", userSelect: "none", background: C.surfaceAlt, minHeight: ROW_H, borderBottom: `1px solid ${C.border}` }}
       >
-        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-          <span style={{
-            fontSize: 11, width: 16, height: 16, display: "inline-flex", alignItems: "center", justifyContent: "center",
-            border: `1px solid ${C.borderMid}`, borderRadius: 3, color: C.inkLight, flexShrink: 0,
-          }}>
+        {/* Sticky левая */}
+        <div style={{
+          position: "sticky", left: 0, zIndex: 2,
+          width: LEFT_COL_W, minWidth: LEFT_COL_W, flexShrink: 0,
+          display: "flex", alignItems: "center", gap: 6,
+          padding: isMobile ? "8px 14px" : "8px 16px",
+          background: C.surfaceAlt,
+          boxSizing: "border-box",
+        }}>
+          <span style={{ fontSize: 11, width: 16, height: 16, display: "inline-flex", alignItems: "center", justifyContent: "center", border: `1px solid ${C.borderMid}`, borderRadius: 3, color: C.inkLight, flexShrink: 0 }}>
             {open ? "−" : "+"}
           </span>
           <span style={{ fontSize: 13, color: C.inkMid, fontWeight: 400 }}>{label}</span>
           <span style={{ fontSize: 11, color: C.inkLight }}>({transactions.length})</span>
         </div>
-        <span style={{
-          fontSize: 13, fontWeight: 500,
-          color: total === 0 ? C.inkLight : (isPos ? C.pos : C.neg),
-          fontVariantNumeric: "tabular-nums",
-        }}>
-          {total === 0 ? "—" : (isPos ? "+" : "−") + fmt(total)}
-        </span>
+
+        {/* Правая: месяцы или итого */}
+        {showMonths ? (
+          <MonthValueCells monthVals={monthVals} total={total} isPos={isPos} />
+        ) : (
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", flex: 1, paddingRight: 16 }}>
+            <span style={{ fontSize: 13, fontWeight: 500, color: total === 0 ? C.inkLight : (isPos ? C.pos : C.neg), fontVariantNumeric: "tabular-nums" }}>
+              {total === 0 ? "—" : (isPos ? "+" : "−") + fmt(total)}
+            </span>
+          </div>
+        )}
       </div>
 
-      {open && (
-        <div>
-          {cats.map(([name, val]) => {
-            const barW = Math.round((val / maxVal) * 80);
-            return (
-              <div key={name} style={{
-                display: "flex", alignItems: "center", gap: isMobile ? 8 : 12,
-                padding: isMobile ? "6px 14px 6px 36px" : "6px 16px 6px 38px",
-                borderTop: `1px solid ${C.border}`,
-              }}>
-                <div style={{ fontSize: 12, color: C.inkMid, width: isMobile ? 100 : 160, flexShrink: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                  {name}
-                </div>
-                <div style={{ flex: 1, height: 3, background: C.border, borderRadius: 2, overflow: "hidden" }}>
-                  <div style={{
-                    width: barW + "%", height: "100%",
-                    background: isPos ? C.pos : C.neg,
-                    borderRadius: 2, opacity: 0.45,
-                    transition: "width 0.35s",
-                  }} />
-                </div>
-                <div style={{ fontSize: 12, fontWeight: 500, color: isPos ? C.pos : C.neg, fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" }}>
-                  {isPos ? "+" : "−"}{fmt(val)} {symbol}
-                </div>
-              </div>
-            );
-          })}
+      {/* ── Раскрытые категории ── */}
+      {open && cats.map(([name, val]) => {
+        const barW = Math.round((val / maxVal) * 60);
+        const catMonthVals = showMonths
+          ? months.map(({ year, month }) => ({ year, month, val: sumCatForMonth(name, year, month) }))
+          : [];
 
+        return (
+          <div key={name} style={{ display: "flex", alignItems: "stretch", background: C.surface, minHeight: ROW_H, borderBottom: `1px solid ${C.border}` }}>
+            {/* Sticky левая — название категории */}
+            <div style={{
+              position: "sticky", left: 0, zIndex: 2,
+              width: LEFT_COL_W, minWidth: LEFT_COL_W, flexShrink: 0,
+              display: "flex", alignItems: "center", gap: 10,
+              padding: isMobile ? "7px 14px 7px 36px" : "7px 16px 7px 38px",
+              background: C.surface,
+              boxSizing: "border-box",
+            }}>
+              <div style={{ fontSize: 12, color: C.inkMid, flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                {name}
+              </div>
+              {!showMonths && (
+                <>
+                  <div style={{ flex: 1, height: 3, background: C.border, borderRadius: 2, overflow: "hidden" }}>
+                    <div style={{ width: barW + "%", height: "100%", background: isPos ? C.pos : C.neg, borderRadius: 2, opacity: 0.45, transition: "width 0.35s" }} />
+                  </div>
+                  <div style={{ fontSize: 12, fontWeight: 500, color: isPos ? C.pos : C.neg, fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" }}>
+                    {isPos ? "+" : "−"}{fmt(val)} {symbol}
+                  </div>
+                </>
+              )}
+            </div>
+
+            {/* Правая: значения по месяцам */}
+            {showMonths && <MonthValueCells monthVals={catMonthVals} total={val} isPos={isPos} highlightTotal={false} />}
+          </div>
+        );
+      })}
+
+      {/* ── Кнопка "показать транзакции" ── */}
+      {open && (
+        <>
           <div
             onClick={() => setShowRows(!showRows)}
-            style={{
-              padding: "7px 16px 7px 38px", display: "flex", alignItems: "center", gap: 5,
-              cursor: "pointer", borderTop: `1px solid ${C.border}`, background: C.surface,
-            }}
+            style={{ display: "flex", alignItems: "center", gap: 5, cursor: "pointer", borderBottom: `1px solid ${C.border}`, background: C.surface }}
           >
-            <span style={{ fontSize: 11, color: C.accent, fontWeight: 500 }}>
-              {showRows ? "Скрыть транзакции" : `Показать транзакции (${transactions.length})`}
-            </span>
-            <span style={{ fontSize: 9, color: C.accent, display: "inline-block", transition: "transform 0.2s", transform: showRows ? "rotate(180deg)" : "rotate(0)" }}>▾</span>
+            {/* Sticky левая */}
+            <div style={{
+              position: "sticky", left: 0, zIndex: 2,
+              width: LEFT_COL_W, minWidth: LEFT_COL_W, flexShrink: 0,
+              padding: "7px 16px 7px 38px",
+              background: C.surface, boxSizing: "border-box",
+              display: "flex", alignItems: "center", gap: 5,
+            }}>
+              <span style={{ fontSize: 11, color: C.accent, fontWeight: 500 }}>
+                {showRows ? "Скрыть транзакции" : `Показать транзакции (${transactions.length})`}
+              </span>
+              <span style={{ fontSize: 9, color: C.accent, display: "inline-block", transition: "transform 0.2s", transform: showRows ? "rotate(180deg)" : "rotate(0)" }}>▾</span>
+            </div>
           </div>
 
           {showRows && (
-            <div style={{ borderTop: `1px solid ${C.border}` }}>
+            <div style={{ borderBottom: `1px solid ${C.border}` }}>
               {!isMobile && <TableHeader />}
               {transactions.length === 0
                 ? <div style={{ padding: "20px", textAlign: "center", color: C.inkLight, fontSize: 13 }}>Нет транзакций</div>
@@ -314,13 +419,14 @@ function SubGroup({ label, transactions, symbol, isPos }) {
               }
             </div>
           )}
-        </div>
+        </>
       )}
-    </div>
+    </>
   );
 }
 
-function Section({ title, total, transactions, symbol }) {
+// ─── Section — блок вида деятельности ─────────────────────────────────────────
+function Section({ title, total, transactions, symbol, months, showMonths }) {
   const isMobile = useIsMobile();
   const [open, setOpen] = useState(true);
 
@@ -328,22 +434,29 @@ function Section({ title, total, transactions, symbol }) {
   const outflowTxs = transactions.filter(t => Number(t._converted ?? t.Sum ?? t.amount ?? 0) < 0);
 
   return (
-    <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 8, overflow: "hidden", marginBottom: 8 }}>
+    <>
+      {/* ── Заголовок секции — sticky левая ── */}
       <div
         onClick={() => setOpen(!open)}
-        style={{
-          display: "flex", alignItems: "center", justifyContent: "space-between",
-          padding: isMobile ? "10px 14px" : "11px 16px",
-          cursor: "pointer", borderBottom: open ? `1px solid ${C.border}` : "none", userSelect: "none",
-        }}
+        style={{ display: "flex", alignItems: "center", cursor: "pointer", userSelect: "none", borderBottom: `1px solid ${C.border}`, background: C.surface, minHeight: 44 }}
       >
-        <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: isMobile ? 13 : 14, fontWeight: 600, color: C.ink }}>
+        {/* Sticky левая */}
+        <div style={{
+          position: "sticky", left: 0, zIndex: 3,
+          width: LEFT_COL_W, minWidth: LEFT_COL_W, flexShrink: 0,
+          display: "flex", alignItems: "center", gap: 8,
+          padding: isMobile ? "10px 14px" : "11px 16px",
+          background: C.surface, boxSizing: "border-box",
+          fontSize: isMobile ? 13 : 14, fontWeight: 600, color: C.ink,
+        }}>
           {title}
           <span style={{ fontWeight: 400, color: C.inkLight, fontSize: 11 }}>({transactions.length})</span>
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+
+        {/* Правая: итого секции */}
+        <div style={{ display: "flex", alignItems: "center", gap: 8, paddingRight: 16, marginLeft: "auto", flexShrink: 0 }}>
           <span style={{ fontSize: isMobile ? 13 : 14, fontWeight: 600, color: total >= 0 ? C.pos : C.neg, fontVariantNumeric: "tabular-nums" }}>
-            {fmtSigned(total, symbol)}
+            {fmtSigned(total)}
           </span>
           <span style={{ fontSize: 10, color: C.inkFaint, display: "inline-block", transition: "transform 0.2s", transform: open ? "rotate(180deg)" : "rotate(0)" }}>▾</span>
         </div>
@@ -351,384 +464,36 @@ function Section({ title, total, transactions, symbol }) {
 
       {open && (
         <>
-          <SubGroup label="Поступления" transactions={inflowTxs}  symbol={symbol} isPos={true}  />
-          <SubGroup label="Выплаты"     transactions={outflowTxs} symbol={symbol} isPos={false} />
+          <SubGroup label="Поступления" transactions={inflowTxs}  symbol={symbol} isPos={true}  months={months} showMonths={showMonths} />
+          <SubGroup label="Выплаты"     transactions={outflowTxs} symbol={symbol} isPos={false} months={months} showMonths={showMonths} />
         </>
       )}
-    </div>
+    </>
   );
 }
 
-function Waterfall({ op, inv, fin, symbol }) {
+function Waterfall({ op, inv, fin }) {
   const isMobile = useIsMobile();
   const net    = op + inv + fin;
   const maxVal = Math.max(Math.abs(op), Math.abs(inv), Math.abs(fin), Math.abs(net), 1);
   const pct    = (v) => Math.round((Math.abs(v) / maxVal) * 84);
-
-  const rows = [
-    { label: "Операционный",   val: op  },
-    { label: "Инвестиционный", val: inv },
-    { label: "Финансовый",     val: fin },
-  ];
-
+  const rows   = [{ label: "Операционный", val: op }, { label: "Инвестиционный", val: inv }, { label: "Финансовый", val: fin }];
   return (
-    <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 8, padding: isMobile ? "14px" : "16px 20px", marginBottom: 8 }}>
-      <div style={{ fontSize: 11, color: C.inkLight, fontWeight: 500, marginBottom: 12, textTransform: "uppercase", letterSpacing: "0.06em" }}>
-        Структура потоков
-      </div>
+    <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 8, padding: isMobile ? "14px" : "16px 20px", marginTop: 8 }}>
+      <div style={{ fontSize: 11, color: C.inkLight, fontWeight: 500, marginBottom: 12, textTransform: "uppercase", letterSpacing: "0.06em" }}>Структура потоков</div>
       {rows.map((r) => (
         <div key={r.label} style={{ display: "flex", alignItems: "center", gap: isMobile ? 8 : 12, marginBottom: 8 }}>
           <div style={{ fontSize: 12, width: isMobile ? 110 : 140, flexShrink: 0, color: C.inkMid }}>{r.label}</div>
           <div style={{ flex: 1, height: 18, background: C.surfaceAlt, borderRadius: 3, overflow: "hidden", border: `1px solid ${C.border}` }}>
-            <div style={{
-              width: pct(r.val) + "%", height: "100%",
-              background: r.val >= 0 ? C.posBg : C.negBg,
-              borderRight: `2px solid ${r.val >= 0 ? C.pos : C.neg}`,
-              borderRadius: "3px 0 0 3px",
-              display: "flex", alignItems: "center", justifyContent: "flex-end", paddingRight: 6,
-              transition: "width 0.4s",
-            }}>
-              <span style={{ fontSize: 10, fontWeight: 500, color: r.val >= 0 ? C.pos : C.neg, fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" }}>
-                {fmtSigned(r.val, symbol)}
-              </span>
+            <div style={{ width: pct(r.val) + "%", height: "100%", background: r.val >= 0 ? C.posBg : C.negBg, borderRight: `2px solid ${r.val >= 0 ? C.pos : C.neg}`, borderRadius: "3px 0 0 3px", display: "flex", alignItems: "center", justifyContent: "flex-end", paddingRight: 6, transition: "width 0.4s" }}>
+              <span style={{ fontSize: 10, fontWeight: 500, color: r.val >= 0 ? C.pos : C.neg, fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" }}>{fmtSigned(r.val)}</span>
             </div>
           </div>
         </div>
       ))}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 0 0", marginTop: 4, borderTop: `1px solid ${C.border}` }}>
         <span style={{ fontSize: isMobile ? 12 : 13, color: C.inkMid }}>Чистое изменение за период</span>
-        <span style={{ fontSize: isMobile ? 14 : 16, fontWeight: 500, color: net >= 0 ? C.pos : C.neg, fontVariantNumeric: "tabular-nums" }}>
-          {fmtSigned(net, symbol)}
-        </span>
-      </div>
-    </div>
-  );
-}
-
-// ─── MonthlyTable ─────────────────────────────────────────────────────────────
-function MonthlyTable({ months, filtered, categoryTypeMap, symbol }) {
-  const [openGroups, setOpenGroups] = useState(new Set());
-
-  const toggleGroup = (key) => {
-    setOpenGroups((prev) => {
-      const next = new Set(prev);
-      next.has(key) ? next.delete(key) : next.add(key);
-      return next;
-    });
-  };
-
-  const sumArr = (arr) => arr.reduce((s, t) => s + Number(t._converted ?? 0), 0);
-
-  const getTxs = (secKey, isPos, year, month) =>
-    filtered.filter((tx) => {
-      if (!tx._isoDate) return false;
-      const d = new Date(tx._isoDate + "T00:00:00");
-      if (d.getFullYear() !== year || d.getMonth() !== month) return false;
-      const sec = getSection(tx, categoryTypeMap);
-      if (sec !== secKey) return false;
-      const sum = Number(tx._converted ?? 0);
-      return isPos ? sum >= 0 : sum < 0;
-    });
-
-  const getCats = (secKey, isPos) => {
-    const catSet = new Set();
-    filtered.forEach((tx) => {
-      const sec = getSection(tx, categoryTypeMap);
-      if (sec !== secKey) return;
-      const sum = Number(tx._converted ?? 0);
-      if (isPos ? sum < 0 : sum >= 0) return;
-      catSet.add(tx.Category || tx.category || "Без категории");
-    });
-    return [...catSet].sort();
-  };
-
-  const colW = Math.max(120, Math.floor(700 / months.length));
-
-  // ── Общие стили для ячейки «Вид деятельности» (прилипающий первый столбец) ──
-  const labelCellBase = {
-    position: "sticky",
-    left: 0,
-    zIndex: 1,
-    width: LABEL_COL_W,
-    minWidth: LABEL_COL_W,
-    boxSizing: "border-box",
-    whiteSpace: "nowrap",          // ← текст в одну строку, не переносится
-    borderRight: `1px solid ${C.border}`,
-    overflow: "hidden",
-    textOverflow: "ellipsis",
-  };
-
-  const SECTIONS = [
-    { key: "op",  label: "Операционная деятельность"  },
-    { key: "inv", label: "Инвестиционная деятельность" },
-    { key: "fin", label: "Финансовая деятельность"     },
-  ];
-
-  // ── Строка-заголовок секции / итоговая строка ──
-  const renderSectionHeader = (label, monthVals, isNet = false) => (
-    <div style={{
-      display: "flex",
-      borderBottom: `1px solid ${C.border}`,
-      background: isNet ? "#eff6ff" : C.surfaceAlt,
-    }}>
-      {/* Прилипающая ячейка с названием */}
-      <div style={{
-        ...labelCellBase,
-        padding: "10px 16px",
-        fontSize: 13,
-        fontWeight: 600,
-        color: isNet ? C.accent : C.ink,
-        background: isNet ? "#eff6ff" : C.surfaceAlt,
-      }}>
-        {label}
-      </div>
-
-      {/* Ячейки с суммами по месяцам */}
-      <div style={{ display: "flex" }}>
-        {monthVals.map(({ year, month, val }) => {
-          const color = val === 0 ? C.inkLight : val > 0 ? C.pos : C.neg;
-          return (
-            <div key={`${year}-${month}`} style={{
-              width: colW,
-              minWidth: colW,
-              padding: "10px 12px",
-              textAlign: "center",           // ← цифры по центру
-              fontSize: 13,
-              fontWeight: 600,
-              color: isNet ? (val >= 0 ? C.pos : C.neg) : color,
-              borderLeft: `1px solid ${C.border}`,
-              fontVariantNumeric: "tabular-nums",
-              boxSizing: "border-box",
-            }}>
-              {val === 0
-                ? <span style={{ color: C.inkFaint }}>—</span>
-                : (val > 0 ? "+" : "−") + fmt(val)}
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
-
-  // ── Строка-группа (Поступления / Выплаты) + строки категорий ──
-  const renderGroupRow = (groupKey, label, isPos, secKey) => {
-    const isOpen = openGroups.has(groupKey);
-    const cats   = getCats(secKey, isPos);
-
-    const monthVals = months.map(({ year, month }) => {
-      const txs = getTxs(secKey, isPos, year, month);
-      return { year, month, val: sumArr(txs) };
-    });
-
-    return (
-      <div key={groupKey}>
-        {/* Строка-заголовок группы (кликабельная) */}
-        <div
-          onClick={() => toggleGroup(groupKey)}
-          style={{
-            display: "flex",
-            borderBottom: `1px solid ${C.border}`,
-            cursor: "pointer",
-            background: C.surface,
-            transition: "background 0.1s",
-          }}
-          onMouseEnter={(e) => e.currentTarget.style.background = C.surfaceAlt}
-          onMouseLeave={(e) => e.currentTarget.style.background = C.surface}
-        >
-          {/* Прилипающая ячейка */}
-          <div style={{
-            ...labelCellBase,
-            padding: "8px 16px 8px 20px",
-            fontSize: 12,
-            fontWeight: 500,
-            color: C.inkMid,
-            background: C.surface,
-            display: "flex",
-            alignItems: "center",
-            gap: 6,
-          }}>
-            <span style={{
-              display: "inline-block",
-              fontSize: 10,
-              color: C.inkLight,
-              transition: "transform 0.2s",
-              transform: isOpen ? "rotate(90deg)" : "rotate(0deg)",
-              lineHeight: 1,
-              flexShrink: 0,
-            }}>▶</span>
-            {label}
-            <span style={{ fontSize: 11, color: C.inkLight, fontWeight: 400 }}>({cats.length})</span>
-          </div>
-
-          {/* Ячейки с суммами */}
-          <div style={{ display: "flex" }}>
-            {monthVals.map(({ year, month, val }) => {
-              const color = val === 0 ? C.inkLight : isPos ? C.pos : C.neg;
-              return (
-                <div key={`${year}-${month}`} style={{
-                  width: colW,
-                  minWidth: colW,
-                  padding: "8px 12px",
-                  textAlign: "center",         // ← цифры по центру
-                  fontSize: 12,
-                  fontWeight: 500,
-                  color,
-                  borderLeft: `1px solid ${C.border}`,
-                  fontVariantNumeric: "tabular-nums",
-                  boxSizing: "border-box",
-                }}>
-                  {val === 0
-                    ? <span style={{ color: C.inkFaint }}>—</span>
-                    : (isPos ? "+" : "−") + fmt(Math.abs(val))}
-                </div>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* Строки категорий (раскрываются) */}
-        {isOpen && cats.map((cat) => {
-          const catMonthVals = months.map(({ year, month }) => {
-            const txs = getTxs(secKey, isPos, year, month).filter(
-              (tx) => (tx.Category || tx.category || "Без категории") === cat
-            );
-            return { year, month, val: sumArr(txs) };
-          });
-
-          return (
-            <div key={cat} style={{
-              display: "flex",
-              borderBottom: `1px solid ${C.border}`,
-              background: isPos ? C.posBg : C.negBg,
-            }}>
-              {/* Прилипающая ячейка категории */}
-              <div style={{
-                ...labelCellBase,
-                padding: "7px 16px 7px 36px",
-                fontSize: 12,
-                color: C.inkMid,
-                background: isPos ? C.posBg : C.negBg,
-              }}>
-                {cat}
-              </div>
-
-              {/* Ячейки с суммами */}
-              <div style={{ display: "flex" }}>
-                {catMonthVals.map(({ year, month, val }) => (
-                  <div key={`${year}-${month}`} style={{
-                    width: colW,
-                    minWidth: colW,
-                    padding: "7px 12px",
-                    textAlign: "center",       // ← цифры по центру
-                    fontSize: 12,
-                    color: val === 0 ? C.inkFaint : isPos ? C.pos : C.neg,
-                    borderLeft: `1px solid ${C.border}`,
-                    fontVariantNumeric: "tabular-nums",
-                    boxSizing: "border-box",
-                  }}>
-                    {val === 0
-                      ? "—"
-                      : (isPos ? "+" : "−") + fmt(Math.abs(val))}
-                  </div>
-                ))}
-              </div>
-            </div>
-          );
-        })}
-      </div>
-    );
-  };
-
-  const getSectionMonthVals = (secKey) =>
-    months.map(({ year, month }) => {
-      const txs = filtered.filter((tx) => {
-        if (!tx._isoDate) return false;
-        const d = new Date(tx._isoDate + "T00:00:00");
-        return d.getFullYear() === year && d.getMonth() === month && getSection(tx, categoryTypeMap) === secKey;
-      });
-      return { year, month, val: sumArr(txs) };
-    });
-
-  const getNetMonthVals = () =>
-    months.map(({ year, month }) => {
-      const txs = filtered.filter((tx) => {
-        if (!tx._isoDate) return false;
-        const d = new Date(tx._isoDate + "T00:00:00");
-        return d.getFullYear() === year && d.getMonth() === month;
-      });
-      return { year, month, val: sumArr(txs) };
-    });
-
-  return (
-    <div style={{
-      background: C.surface,
-      border: `1px solid ${C.border}`,
-      borderRadius: 8,
-      overflow: "hidden",
-      marginBottom: 8,
-    }}>
-      <div style={{ overflowX: "auto" }}>
-        <div style={{ minWidth: LABEL_COL_W + months.length * colW }}>
-
-          {/* Шапка с месяцами */}
-          <div style={{
-            display: "flex",
-            background: C.surfaceAlt,
-            borderBottom: `2px solid ${C.border}`,
-            position: "sticky",
-            top: 0,
-            zIndex: 3,
-          }}>
-            {/* Прилипающая ячейка шапки */}
-            <div style={{
-              ...labelCellBase,
-              padding: "10px 16px",
-              fontSize: 10,
-              fontWeight: 600,
-              color: C.inkLight,
-              textTransform: "uppercase",
-              letterSpacing: "0.06em",
-              background: C.surfaceAlt,
-              zIndex: 3,
-            }}>
-              Вид деятельности
-            </div>
-
-            {/* Заголовки месяцев */}
-            <div style={{ display: "flex" }}>
-              {months.map(({ year, month }) => (
-                <div key={`${year}-${month}`} style={{
-                  width: colW,
-                  minWidth: colW,
-                  padding: "10px 12px",
-                  fontSize: 10,
-                  fontWeight: 600,
-                  color: C.inkLight,
-                  textTransform: "uppercase",
-                  letterSpacing: "0.06em",
-                  textAlign: "center",         // ← заголовки месяцев тоже по центру
-                  borderLeft: `1px solid ${C.border}`,
-                  boxSizing: "border-box",
-                }}>
-                  {MONTH_NAMES_RU[month]} {year}
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Секции */}
-          {SECTIONS.map((sec) => (
-            <div key={sec.key}>
-              {renderSectionHeader(sec.label, getSectionMonthVals(sec.key))}
-              {renderGroupRow(`${sec.key}_in`,  "Поступления", true,  sec.key)}
-              {renderGroupRow(`${sec.key}_out`, "Выплаты",     false, sec.key)}
-            </div>
-          ))}
-
-          {/* Чистый поток */}
-          {renderSectionHeader("Чистый поток", getNetMonthVals(), true)}
-
-        </div>
+        <span style={{ fontSize: isMobile ? 14 : 16, fontWeight: 500, color: net >= 0 ? C.pos : C.neg, fontVariantNumeric: "tabular-nums" }}>{fmtSigned(net)}</span>
       </div>
     </div>
   );
@@ -738,14 +503,7 @@ function MonthlyTable({ months, filtered, categoryTypeMap, symbol }) {
 export default function CashFlow() {
   const isMobile = useIsMobile();
 
-  const {
-    transactions: rawTransactions,
-    accounts,
-    categoryTypeMap,
-    accountCurrencyMap,
-    loading: storeLoading,
-    error: storeError,
-  } = useAppStore();
+  const { transactions: rawTransactions, categoryTypeMap, accountCurrencyMap, loading: storeLoading, error: storeError } = useAppStore();
 
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo,   setDateTo]   = useState("");
@@ -784,10 +542,7 @@ export default function CashFlow() {
   const transactionsWithConversion = useMemo(() =>
     transactions.map((tx) => ({
       ...tx,
-      _converted: convert(
-        Number(tx.Sum ?? tx.amount ?? 0),
-        tx._accountCurrency || "UZS"
-      ),
+      _converted: convert(Number(tx.Sum ?? tx.amount ?? 0), tx._accountCurrency || "UZS"),
     })),
     [transactions, convert]
   );
@@ -804,8 +559,8 @@ export default function CashFlow() {
   const filtered = useMemo(() => transactionsWithConversion.filter((tx) => {
     if (dateFrom && tx._isoDate && tx._isoDate < dateFrom) return false;
     if (dateTo   && tx._isoDate && tx._isoDate > dateTo)   return false;
-    if (project !== "all" && (tx.Project || tx.direction || "") !== project) return false;
-    if (account !== "all" && (tx.Account || tx.walletName || "") !== account) return false;
+    if (project  !== "all" && (tx.Project || tx.direction || "") !== project) return false;
+    if (account  !== "all" && (tx.Account || tx.walletName || "") !== account) return false;
     if (category !== "all" && getSection(tx, categoryTypeMap) !== category) return false;
     return true;
   }), [transactionsWithConversion, dateFrom, dateTo, project, account, category, categoryTypeMap]);
@@ -819,15 +574,16 @@ export default function CashFlow() {
   const finTotal = sumArr(finTxs);
   const netTotal = opTotal + invTotal + finTotal;
 
-  const months      = useMemo(() => getMonthsInRange(dateFrom, dateTo), [dateFrom, dateTo]);
-  const showMonthly = months.length >= 2;
+  const months     = useMemo(() => getMonthsInRange(dateFrom, dateTo), [dateFrom, dateTo]);
+  const showMonths = months.length >= 2;
+
+  const tableMinWidth = showMonths ? LEFT_COL_W + COL_W * (months.length + 1) : "100%";
 
   const SECTIONS = [
     { key: "op",  title: "Операционная деятельность",  total: opTotal,  txs: opTxs  },
     { key: "inv", title: "Инвестиционная деятельность", total: invTotal, txs: invTxs },
     { key: "fin", title: "Финансовая деятельность",     total: finTotal, txs: finTxs },
   ];
-
   const visibleSections = category === "all" ? SECTIONS : SECTIONS.filter((s) => s.key === category);
 
   const inputStyle = {
@@ -840,24 +596,16 @@ export default function CashFlow() {
   const isLoading = storeLoading || currencyLoading;
 
   return (
-    <div style={{
-      fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
-      width: "100%",
-      color: C.ink,
-    }}>
+    <div style={{ fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif", width: "100%", color: C.ink }}>
 
       <div style={{ marginBottom: "1rem" }}>
-        <h1 style={{ fontSize: isMobile ? 17 : 20, fontWeight: 600, letterSpacing: -0.3, margin: 0, color: C.ink }}>
-          Движение денежных средств
-        </h1>
+        <h1 style={{ fontSize: isMobile ? 17 : 20, fontWeight: 600, letterSpacing: -0.3, margin: 0, color: C.ink }}>Движение денежных средств</h1>
         <p style={{ margin: "4px 0 0" }}>
-          <span style={{ padding: "2px 8px", background: C.accentBg, color: C.accent, borderRadius: 4, fontSize: 11, fontWeight: 500 }}>
-            Итоги в {targetCurrency}
-          </span>
+          <span style={{ padding: "2px 8px", background: C.accentBg, color: C.accent, borderRadius: 4, fontSize: 11, fontWeight: 500 }}>Итоги в {targetCurrency}</span>
         </p>
       </div>
 
-      {/* Filter bar */}
+      {/* Фильтры */}
       <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 10, padding: "16px 20px", marginBottom: 14 }}>
         <div style={{ display: "flex", flexWrap: "wrap", gap: 20, alignItems: "flex-end" }}>
           <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
@@ -865,14 +613,12 @@ export default function CashFlow() {
             <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
               <input type="date" value={dateFrom} onChange={(e) => { setDateFrom(e.target.value); setPeriod(""); }} style={inputStyle} />
               <span style={{ fontSize: 11, color: C.inkLight }}>—</span>
-              <input type="date" value={dateTo}   onChange={(e) => { setDateTo(e.target.value); setPeriod(""); }} style={inputStyle} />
+              <input type="date" value={dateTo} onChange={(e) => { setDateTo(e.target.value); setPeriod(""); }} style={inputStyle} />
               {(dateFrom || dateTo) && (
-                <button onClick={() => { setDateFrom(""); setDateTo(""); setPeriod("all"); }}
-                  style={{ fontSize: 12, color: C.inkLight, background: "none", border: "none", cursor: "pointer" }}>✕</button>
+                <button onClick={() => { setDateFrom(""); setDateTo(""); setPeriod("all"); }} style={{ fontSize: 12, color: C.inkLight, background: "none", border: "none", cursor: "pointer" }}>✕</button>
               )}
             </div>
           </div>
-
           <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
             <div style={{ fontSize: 9, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.1em", color: C.inkLight }}>Быстро</div>
             <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
@@ -881,7 +627,6 @@ export default function CashFlow() {
               ))}
             </div>
           </div>
-
           <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
             <div style={{ fontSize: 9, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.1em", color: C.inkLight }}>Деятельность</div>
             <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
@@ -890,25 +635,19 @@ export default function CashFlow() {
               ))}
             </div>
           </div>
-
           {projectNames.length > 1 && (
             <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
               <div style={{ fontSize: 9, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.1em", color: C.inkLight }}>Проект</div>
               <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
-                {projectNames.map((p) => (
-                  <Pill key={p} label={p === "all" ? "Все" : p} active={project === p} onClick={() => setProject(p)} />
-                ))}
+                {projectNames.map((p) => <Pill key={p} label={p === "all" ? "Все" : p} active={project === p} onClick={() => setProject(p)} />)}
               </div>
             </div>
           )}
-
           {accountNames.length > 1 && (
             <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
               <div style={{ fontSize: 9, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.1em", color: C.inkLight }}>Счёт</div>
               <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
-                {accountNames.map((a) => (
-                  <Pill key={a} label={a === "all" ? "Все" : a} active={account === a} onClick={() => setAccount(a)} />
-                ))}
+                {accountNames.map((a) => <Pill key={a} label={a === "all" ? "Все" : a} active={account === a} onClick={() => setAccount(a)} />)}
               </div>
             </div>
           )}
@@ -916,19 +655,11 @@ export default function CashFlow() {
       </div>
 
       {/* KPI */}
-      <div style={{
-        display: "grid",
-        gridTemplateColumns: isMobile ? "repeat(2, 1fr)" : "repeat(4, 1fr)",
-        background: C.border,
-        border: `1px solid ${C.border}`,
-        borderRadius: 8,
-        overflow: "hidden",
-        marginBottom: 10,
-      }}>
-        <KpiCard label="Операционный поток"   value={fmtSigned(opTotal,  symbol)} pos={opTotal  >= 0} />
-        <KpiCard label="Инвестиционный поток"  value={fmtSigned(invTotal, symbol)} pos={invTotal >= 0} />
-        <KpiCard label="Финансовый поток"      value={fmtSigned(finTotal, symbol)} pos={finTotal >= 0} />
-        <KpiCard label="Чистый поток"          value={fmtSigned(netTotal, symbol)} pos={netTotal >= 0} />
+      <div style={{ display: "grid", gridTemplateColumns: isMobile ? "repeat(2, 1fr)" : "repeat(4, 1fr)", background: C.border, border: `1px solid ${C.border}`, borderRadius: 8, overflow: "hidden", marginBottom: 14 }}>
+        <KpiCard label="Операционный поток"  value={fmtSigned(opTotal)}  pos={opTotal  >= 0} />
+        <KpiCard label="Инвестиционный поток" value={fmtSigned(invTotal)} pos={invTotal >= 0} />
+        <KpiCard label="Финансовый поток"     value={fmtSigned(finTotal)} pos={finTotal >= 0} />
+        <KpiCard label="Чистый поток"         value={fmtSigned(netTotal)} pos={netTotal >= 0} />
       </div>
 
       {storeError && (
@@ -938,27 +669,42 @@ export default function CashFlow() {
       )}
 
       {isLoading && (
-        <div style={{ textAlign: "center", padding: "40px 0", color: C.inkLight, fontSize: 13 }}>
-          Загрузка данных…
+        <div style={{ textAlign: "center", padding: "40px 0", color: C.inkLight, fontSize: 13 }}>Загрузка данных…</div>
+      )}
+
+      {/* ═══ ЕДИНЫЙ СКРОЛЛ-КОНТЕЙНЕР для всей таблицы ═══ */}
+      {!isLoading && (
+        <div style={{
+          border: `1px solid ${C.border}`,
+          borderRadius: 8,
+          overflowX: showMonths ? "auto" : "visible",
+          overflowY: "visible",
+          scrollbarWidth: "thin",
+          scrollbarColor: `${C.borderMid} transparent`,
+        }}>
+          <div style={{ minWidth: showMonths ? tableMinWidth : "100%" }}>
+
+            {/* Шапка месяцев */}
+            {showMonths && <MonthsHeaderRow months={months} filtered={filtered} />}
+
+            {/* Секции */}
+            {visibleSections.map((sec) => (
+              <Section
+                key={sec.key}
+                title={sec.title}
+                total={sec.total}
+                transactions={sec.txs}
+                symbol={symbol}
+                months={months}
+                showMonths={showMonths}
+              />
+            ))}
+          </div>
         </div>
       )}
 
-      {/* Таблица по месяцам */}
-      {!isLoading && showMonthly && (
-        <MonthlyTable
-          months={months}
-          filtered={filtered}
-          categoryTypeMap={categoryTypeMap}
-          symbol={symbol}
-        />
-      )}
-
-      {/* Обычные секции */}
-      {!isLoading && !showMonthly && visibleSections.map((sec) => (
-        <Section key={sec.key} title={sec.title} total={sec.total} transactions={sec.txs} symbol={symbol} />
-      ))}
-
-      {!isLoading && <Waterfall op={opTotal} inv={invTotal} fin={finTotal} symbol={symbol} />}
+      {/* Waterfall — вне скролл-контейнера */}
+      {!isLoading && <Waterfall op={opTotal} inv={invTotal} fin={finTotal} />}
     </div>
   );
 }
