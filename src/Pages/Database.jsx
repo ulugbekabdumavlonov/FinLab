@@ -97,9 +97,7 @@ function WalletModal({ wallets, loading, onSelect, onClose }) {
                 <div>
                   <div style={{ fontSize: 14, fontWeight: 500, color: c.textPrimary }}>{w.name}</div>
                   <div style={{ fontSize: 12, color: c.textSecondary, marginTop: 1 }}>
-                    {w.balance !== undefined
-                      ? `${Number(w.balance || 0).toLocaleString("ru-RU")} ${w.currency || "UZS"}`
-                      : w.entityName || "Без юрлица"}
+                  {w.entityName || "Без юрлица"}
                   </div>
                 </div>
               </button>
@@ -297,53 +295,71 @@ export default function ImportPage() {
   };
 
   // ── After wallet selected → write rows to user's transactions ─────────────
-  const handleWalletSelected = async (wallet) => {
-    if (!pendingFile) return;
+const handleWalletSelected = async (wallet) => {
+  if (!pendingFile) return;
+  const user = auth.currentUser;
+  if (!user) {
+    showToast("Ошибка: пользователь не авторизован", "danger");
+    return;
+  }
+  setShowWalletModal(false);
+  setUploading(true);
+  try {
+    // Загружаем автоправила
+    const rulesSnap = await getDocs(collection(db, "users", user.uid, "autoRules"));
+    const rules = rulesSnap.docs.map((d) => d.data());
 
-    const user = auth.currentUser;
-    if (!user) {
-      showToast("Ошибка: пользователь не авторизован", "danger");
-      return;
-    }
-
-    setShowWalletModal(false);
-    setUploading(true);
-
-    try {
-      const today = new Date().toLocaleDateString("ru-RU");
-      // FIX: уникальный ключ для каждого импорта — имя файла + timestamp
-      // чтобы повторные загрузки одного файла не сливались в одну строку
-      const importKey = `${pendingFile.name}__${Date.now()}`;
-      const total = pendingFile.rows.reduce(
-        (sum, r) => sum + (parseFloat(r.Sum) || 0),
-        0
-      );
-
-      const writes = pendingFile.rows.map((row) => {
-        const amount = parseFloat(row.Sum) || 0;
-        return addDoc(userCol("transactions"), {
-          date:         normalizeDate(row.Date || ""),
-          amount,
-          counterparty: row.Counterparty || "",
-          category:     row.Category     || "",
-          direction:    row.Project       || "",
-          description:  row.Details      || "",
-          type:         amount >= 0 ? "income" : "expense",
-          walletId:     wallet.id,
-          walletName:   wallet.name,
-          source:       "imported",
-          fileName:     importKey,
-          uploadedAt:   today,
-          createdAt:    serverTimestamp(),
-        });
+    const applyRules = (counterparty, description) => {
+      const matched = rules.find((r) => {
+        const val = r.matchType === "description"
+          ? (description || "")
+          : (counterparty || "");
+        return r.contains && val.toLowerCase().includes(r.contains.toLowerCase());
       });
+      return {
+        category:  matched?.category  || "",
+        direction: matched?.direction || "",
+      };
+    };
 
-      await Promise.all(writes);
+    const today = new Date().toLocaleDateString("ru-RU");
+    const importKey = `${pendingFile.name}__${Date.now()}`;
+    const total = pendingFile.rows.reduce(
+      (sum, r) => sum + (parseFloat(r.Sum) || 0),
+      0
+    );
 
+    const writes = pendingFile.rows.map((row) => {
+      const amount       = parseFloat(row.Sum) || 0;
+      const counterparty = row.Counterparty || "";
+      const description  = row.Details      || "";
+
+      // Берём из CSV, если есть — иначе применяем автоправила
+      const csvCategory  = row.Category || "";
+      const csvDirection = row.Project  || "";
+      const { category, direction } = (csvCategory || csvDirection)
+        ? { category: csvCategory, direction: csvDirection }
+        : applyRules(counterparty, description);
+
+      return addDoc(userCol("transactions"), {
+        date:         normalizeDate(row.Date || ""),
+        amount,
+        counterparty,
+        category,
+        direction,
+        description,
+        type:         amount >= 0 ? "income" : "expense",
+        walletId:     wallet.id,
+        walletName:   wallet.name,
+        source:       "imported",
+        fileName:     importKey,
+        uploadedAt:   today,
+        createdAt:    serverTimestamp(),
+      });
+    });
+
+    await Promise.all(writes);
       // Обновляем баланс счёта
-      await updateDoc(userDoc("accounts", wallet.id), {
-        balance: increment(total),
-      });
       await store.refresh();
 
       showToast(`Файл «${pendingFile.name}» загружен (${pendingFile.rows.length} операций)`);
@@ -366,12 +382,6 @@ export default function ImportPage() {
       );
 
       await Promise.all(toDelete.map((d) => deleteDoc(userDoc("transactions", d.id))));
-
-      if (walletId && total !== 0) {
-        await updateDoc(userDoc("accounts", walletId), {
-          balance: increment(-total),
-        });
-      }
 
       await store.refresh();
 
