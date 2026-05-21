@@ -10,6 +10,7 @@ import {
   collection, addDoc, getDocs,
   updateDoc, deleteDoc, doc, serverTimestamp,
 } from "firebase/firestore";
+import { useAppStore, store } from "../Pages/useAppStore";
 
 const getCompanyId = () => window.__finlab_user?.companyId || auth.currentUser?.uid;
 const userCol = (name) => collection(db, "users", getCompanyId(), name);
@@ -184,18 +185,20 @@ function DirectionModal({ initial, entities, accounts, onClose, onSuccess }) {
     set(key, form[key].includes(id) ? form[key].filter(i => i !== id) : [...form[key], id]);
 
   const handleSave = async () => {
-    if (!form.name.trim()) return;
-    setSaving(true);
-    try {
-      if (isEdit) {
-        await updateDoc(userDoc("projects", initial.id), { ...form, updatedAt: serverTimestamp() });
-      } else {
-        await addDoc(userCol("projects"), { ...form, createdAt: serverTimestamp() });
-      }
-      await onSuccess();
-      onClose();
-    } finally { setSaving(false); }
-  };
+  if (!form.name.trim()) return;
+  setSaving(true);
+  try {
+    if (isEdit) {
+      await updateDoc(userDoc("projects", initial.id), { ...form, updatedAt: serverTimestamp() });
+      store.updateProject(initial.id, { id: initial.id, ...form });
+    } else {
+      const ref = await addDoc(userCol("projects"), { ...form, createdAt: serverTimestamp() });
+      store.addProject({ id: ref.id, ...form });
+    }
+    await onSuccess();
+    onClose();
+  } finally { setSaving(false); }
+};
 
   useEffect(() => {
     const h = (e) => { if (e.key === "Escape") onClose(); };
@@ -726,28 +729,23 @@ function DirectionTable({ items, entities, accounts, transactions, onEdit, onDel
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
 export default function BusinessDirections() {
+  const { accounts, transactions } = useAppStore();
   const [directions,   setDirections]   = useState([]);
   const [entities,     setEntities]     = useState([]);
-  const [accounts,     setAccounts]     = useState([]);
-  const [transactions, setTransactions] = useState([]);
   const [loading,      setLoading]      = useState(true);
   const [modal,        setModal]        = useState(null);
   const [search,       setSearch]       = useState("");
   const [filterStatus, setFilterStatus] = useState("all");
   const [viewMode,     setViewMode]     = useState("card"); // "card" | "table"
 
-  const loadData = useCallback(async () => {
+ const loadData = useCallback(async () => {
     setLoading(true);
-    const [p, e, a, t] = await Promise.all([
+    const [p, e] = await Promise.all([
       getDocs(userCol("projects")),
       getDocs(userCol("legal_entities")),
-      getDocs(userCol("accounts")),
-      getDocs(userCol("transactions")),
     ]);
     setDirections(p.docs.map(d => ({ id: d.id, ...d.data() })));
     setEntities(e.docs.map(d => ({ id: d.id, ...d.data() })));
-    setAccounts(a.docs.map(d => ({ id: d.id, ...d.data() })));
-    setTransactions(t.docs.map(d => ({ id: d.id, ...d.data() })));
     setLoading(false);
   }, []);
 
