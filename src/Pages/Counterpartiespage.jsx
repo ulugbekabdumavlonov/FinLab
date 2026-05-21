@@ -19,7 +19,7 @@ import {
   onSnapshot, serverTimestamp,
 } from "firebase/firestore";
 import { auth, db } from "../firebase";
-import { useAppStore } from "../useAppStore";
+import { useAppStore } from "./useAppStore";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 const userCol = (name) =>
