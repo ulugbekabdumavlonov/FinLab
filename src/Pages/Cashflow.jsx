@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from "react";
-import { useAppStore } from "../useAppStore";
+import { useAppStore } from "./useAppStore";
 import { useCurrency } from "./useCurrency";
 
 const fmt = (n) =>
