@@ -24,6 +24,7 @@ import {
   onSnapshot, serverTimestamp, query, orderBy, writeBatch,
 } from "firebase/firestore";
 import { auth, db } from "../firebase";
+import { store } from "../Pages/useAppStore";
 
 // ─── Firestore helpers ────────────────────────────────────────────────────────
 const userCol = (uid, name) => collection(db, "users", uid, name);
@@ -811,10 +812,14 @@ export default function OperationCategories() {
       const { id, ...data } = form;
       if (id) {
         await updateDoc(userDoc(uid, COLLECTION, id), data);
+        // Триггерит _reEnrichAllTransactions() — category во всех
+        // операциях обновляется мгновенно через lookup
+        store.updateCategory(id, { id, ...data });
       } else {
-        await addDoc(userCol(uid, COLLECTION), {
+        const ref = await addDoc(userCol(uid, COLLECTION), {
           ...data, sortOrder: cats.length, createdAt: serverTimestamp(),
         });
+        store.addCategory({ id: ref.id, ...data, sortOrder: cats.length });
       }
       setPanelCat(null);
     } catch (e) {
