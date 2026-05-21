@@ -4,6 +4,7 @@ import {
   updateDoc, deleteDoc, doc,
   collection, addDoc, getDocs,
 } from "firebase/firestore";
+import { store } from "../Pages/useAppStore";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 const getCompanyId = () => {
@@ -508,10 +509,21 @@ export default function MyWallet() {
     const { id, _actualBalance, _txCount, _lastTxDate, ...data } = form;
     if (id) {
       await updateDoc(userDoc("accounts", id), data);
+      // Это триггерит _reEnrichAllTransactions() в store —
+      // walletName во всех операциях обновляется мгновенно
+      store.updateAccount(id, { id, ...data });
       await loadData();
     } else {
       const ref = await addDoc(userCol("accounts"), data);
-      setAccounts((prev) => [...prev, { ...data, id: ref.id, _actualBalance: Number(data.balance || 0), _txCount: 0, _lastTxDate: null }]);
+      const newAcc = {
+        ...data,
+        id:             ref.id,
+        _actualBalance: Number(data.balance || 0),
+        _txCount:       0,
+        _lastTxDate:    null,
+      };
+      setAccounts((prev) => [...prev, newAcc]);
+      store.addAccount(newAcc);
     }
     setModal(null);
   };
