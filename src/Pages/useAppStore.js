@@ -296,7 +296,8 @@ export function useAppStore() {
   }, []);
 
   return {
-    transactions:       _cache.transactions     ?? [],
+    transactions:       (_cache.transactions ?? []).filter((t) => t._source !== "split"),
+    allTransactions:    _cache.transactions ?? [],
     accounts:           _cache.accounts         ?? [],
     projects:           _cache.projects         ?? [],
     categories:         _cache.categories       ?? [],
