@@ -1131,9 +1131,8 @@ function ChildRows({ parentDocId, transactions }) {
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
 export default function OperationsPage() {
-  const {
-  transactions, allTransactions, accounts: wallets, projects, categories,
-  loading, error: storeError, refresh,
+  const { transactions, allTransactions, accounts: wallets, projects, categories,
+  loading, error: storeError, refresh, store,
 } = useAppStore();
 
   const [localError,   setLocalError]   = useState("");
@@ -1231,26 +1230,33 @@ export default function OperationsPage() {
 
   const handleSaveTx = async (tx) => {
     try {
+      const docData = {
+        date:         tx._isoDate,
+        amount:       tx.amount,
+        counterparty: tx.counterparty || "",
+        description:  tx.description  || "",
+        type:         tx.type,
+        source:       tx._source || "manual",
+        fileName:     tx.fileName || "",
+        walletId:     tx.walletId   || "",
+        toWalletId:   tx.toWalletId || "",
+        categoryId:   store.getCategoryId(tx.category)  || tx.categoryId  || "",
+        projectId:    store.getProjectId(tx.direction)  || tx.projectId   || "",
+      };
+
       if (tx._docId) {
-        await updateDoc(userDoc("transactions", tx._docId), {
-          date: tx._isoDate, amount: tx.amount,
-          counterparty: tx.counterparty, category: tx.category,
-          description: tx.description, direction: tx.direction,
-          type: tx.type, walletId: tx.walletId || "", walletName: tx.walletName || "",
-          toWalletId: tx.toWalletId || "", toWalletName: tx.toWalletName || "",
-        });
-        store.updateTransaction(tx.id, { ...tx, _isoDate: normalizeDate(tx._isoDate) });
+        await updateDoc(userDoc("transactions", tx._docId), docData);
+        store.updateTransaction(tx.id, { ...docData, _isoDate: normalizeDate(tx._isoDate) });
       } else {
-        const docData = {
-          date: tx._isoDate, amount: tx.amount,
-          counterparty: tx.counterparty, category: tx.category,
-          description: tx.description, direction: tx.direction,
-          type: tx.type, walletId: tx.walletId || "", walletName: tx.walletName || "",
-          toWalletId: tx.toWalletId || "", toWalletName: tx.toWalletName || "",
-          source: "manual", fileName: "", createdAt: serverTimestamp(),
-        };
-        const ref = await addDoc(userCol("transactions"), docData);
-        store.addTransaction({ ...docData, id: ref.id, _docId: ref.id, _isoDate: normalizeDate(tx._isoDate), _source: "manual" });
+        const ref = await addDoc(userCol("transactions"), {
+          ...docData, createdAt: serverTimestamp(),
+        });
+        store.addTransaction({
+          ...docData,
+          id:      ref.id,
+          _docId:  ref.id,
+          _isoDate: normalizeDate(tx._isoDate),
+        });
       }
     } catch (e) {
       setLocalError("Ошибка сохранения: " + e.message);
@@ -1259,16 +1265,27 @@ export default function OperationsPage() {
   };
 
   const handleDelete = async (id) => {
-    const tx = transactions.find((t) => t.id === id);
-    if (!tx) return;
-    try {
-      await deleteDoc(userDoc("transactions", tx._docId));
-      store.deleteTransaction(id);
-    } catch (e) {
-      setLocalError("Ошибка удаления: " + e.message);
+  const tx = transactions.find((t) => t.id === id) 
+          || allTransactions.find((t) => t.id === id);
+  if (!tx) return;
+  try {
+    // Удаляем дочерние split-транзакции если есть
+    const children = allTransactions.filter(
+      (t) => t.parentId === tx._docId && (t._source === "split" || t.source === "split")
+    );
+    for (const child of children) {
+      await deleteDoc(userDoc("transactions", child._docId));
+      store.deleteTransaction(child.id);
     }
-    setModal(null);
-  };
+
+    // Удаляем саму транзакцию
+    await deleteDoc(userDoc("transactions", tx._docId));
+    store.deleteTransaction(id);
+  } catch (e) {
+    setLocalError("Ошибка удаления: " + e.message);
+  }
+  setModal(null);
+};
 
   const handleBulkDelete = async () => {
     if (!window.confirm(`Удалить ${selected.size} операций?`)) return;
@@ -1304,16 +1321,27 @@ export default function OperationsPage() {
 
   const handleDuplicate = async (tx) => {
     const docData = {
-      date: tx._isoDate, amount: tx.amount,
-      counterparty: tx.counterparty, category: tx.category,
-      description: tx.description, direction: tx.direction,
-      type: tx.type, walletId: tx.walletId || "", walletName: tx.walletName || "",
-      toWalletId: tx.toWalletId || "", toWalletName: tx.toWalletName || "",
-      source: "manual", fileName: "", createdAt: serverTimestamp(),
+      date:         tx._isoDate,
+      amount:       tx.amount,
+      counterparty: tx.counterparty || "",
+      description:  tx.description  || "",
+      type:         tx.type,
+      walletId:     tx.walletId   || "",
+      toWalletId:   tx.toWalletId || "",
+      categoryId:   tx.categoryId || store.getCategoryId(tx.category) || "",
+      projectId:    tx.projectId  || store.getProjectId(tx.direction) || "",
+      source:       "manual",
+      fileName:     "",
     };
     try {
-      const ref = await addDoc(userCol("transactions"), docData);
-      store.addTransaction({ ...docData, id: ref.id, _docId: ref.id, _isoDate: normalizeDate(tx._isoDate), _source: "manual" });
+      const ref = await addDoc(userCol("transactions"), { ...docData, createdAt: serverTimestamp() });
+      store.addTransaction({
+        ...docData,
+        id:      ref.id,
+        _docId:  ref.id,
+        _isoDate: normalizeDate(tx._isoDate),
+        _source:  "manual",
+      });
     } catch (e) {
       setLocalError("Ошибка дублирования: " + e.message);
     }
@@ -1323,15 +1351,33 @@ export default function OperationsPage() {
     const parent = splitModal;
     try {
       for (const child of children) {
-        const docData = { ...child, createdAt: serverTimestamp() };
-        const ref = await addDoc(userCol("transactions"), docData);
-        store.addTransaction({ ...docData, id: ref.id, _docId: ref.id, _isoDate: normalizeDate(child.date), _source: "split" });
+        const docData = {
+          date:         parent._isoDate,
+          amount:       child.amount,
+          counterparty: parent.counterparty || "",
+          description:  parent.description  || "",
+          type:         parent.type,
+          walletId:     parent.walletId   || "",
+          toWalletId:   parent.toWalletId || "",
+          categoryId:   store.getCategoryId(child.category) || child.categoryId || "",
+          projectId:    store.getProjectId(child.direction) || child.projectId  || "",
+          source:       "split",
+          parentId:     parent._docId,
+          fileName:     "",
+        };
+        const ref = await addDoc(userCol("transactions"), { ...docData, createdAt: serverTimestamp() });
+        store.addTransaction({
+          ...docData,
+          id:      ref.id,
+          _docId:  ref.id,
+          _isoDate: normalizeDate(docData.date),
+          _source:  "split",
+        });
       }
       if (parent?._docId) {
         await updateDoc(userDoc("transactions", parent._docId), { isSplit: true });
         store.updateTransaction(parent.id, { isSplit: true });
       }
-      // Автоматически раскрыть после разбивки
       setExpandedRows((prev) => new Set([...prev, parent.id]));
     } catch (e) {
       setLocalError("Ошибка разбивки: " + e.message);
