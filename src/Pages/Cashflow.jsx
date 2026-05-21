@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from "react";
-import { useAppStore } from "../Pages/useAppStore";
+import { useAppStore } from "../useAppStore";
 import { useCurrency } from "./useCurrency";
 
 const fmt = (n) =>
@@ -503,7 +503,7 @@ function Waterfall({ op, inv, fin }) {
 export default function CashFlow() {
   const isMobile = useIsMobile();
 
-  const { transactions: rawTransactions, categoryTypeMap, accountCurrencyMap, loading: storeLoading, error: storeError } = useAppStore();
+  const { allTransactions: rawTransactions, categoryTypeMap, accountCurrencyMap, loading: storeLoading, error: storeError } = useAppStore();
 
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo,   setDateTo]   = useState("");
@@ -556,14 +556,24 @@ export default function CashFlow() {
     [transactionsWithConversion]
   );
 
-  const filtered = useMemo(() => transactionsWithConversion.filter((tx) => {
-    if (dateFrom && tx._isoDate && tx._isoDate < dateFrom) return false;
-    if (dateTo   && tx._isoDate && tx._isoDate > dateTo)   return false;
-    if (project  !== "all" && (tx.Project || tx.direction || "") !== project) return false;
-    if (account  !== "all" && (tx.Account || tx.walletName || "") !== account) return false;
-    if (category !== "all" && getSection(tx, categoryTypeMap) !== category) return false;
-    return true;
-  }), [transactionsWithConversion, dateFrom, dateTo, project, account, category, categoryTypeMap]);
+  const filtered = useMemo(() => {
+    const splitParentIds = new Set(
+      transactionsWithConversion
+        .filter(t => t._source === "split" || t.source === "split")
+        .map(t => t.parentId)
+        .filter(Boolean)
+    );
+
+    return transactionsWithConversion.filter((tx) => {
+      if (splitParentIds.has(tx._docId || tx.id)) return false;
+      if (dateFrom && tx._isoDate && tx._isoDate < dateFrom) return false;
+      if (dateTo   && tx._isoDate && tx._isoDate > dateTo)   return false;
+      if (project  !== "all" && (tx.Project || tx.direction || "") !== project) return false;
+      if (account  !== "all" && (tx.Account || tx.walletName || "") !== account) return false;
+      if (category !== "all" && getSection(tx, categoryTypeMap) !== category) return false;
+      return true;
+    });
+  }, [transactionsWithConversion, dateFrom, dateTo, project, account, category, categoryTypeMap]);
 
   const sumArr   = (arr) => arr.reduce((s, t) => s + Number(t._converted ?? 0), 0);
   const opTxs    = filtered.filter((t) => getSection(t, categoryTypeMap) === "op");
