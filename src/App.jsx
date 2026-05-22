@@ -23,7 +23,7 @@ import Settlements from "./Pages/Settlements";
 import InvitePage from "./Pages/Invitepage";
 import Onboarding from "./Pages/Onboarding";
 import Warehouse from "./Pages/Warehouse";
-import Sales from "./Pages/Sales";
+import Sales from "./Pages/sales";
 import Purchases from "./Pages/Purchases";
 import Items from "./Pages/Items";
 import Helppage from "./Pages/Helppage";
@@ -70,7 +70,7 @@ function App() {
           <Route path="Counterpartiespage" element={<Counterpartiespage />} />
           <Route path="Settlements" element={<Settlements />} />
           <Route path="Warehouse" element={<Warehouse />} />
-          <Route path="Sales" element={<Sales />} />
+          <Route path="sales" element={<sales />} />
           <Route path="Purchases" element={<Purchases />} />
           <Route path="Items" element={<Items />} />
           <Route path="Helppage" element={<Helppage />} />
