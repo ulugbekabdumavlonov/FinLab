@@ -1,3 +1,26 @@
+/**
+ * Navbar.jsx — v3.0
+ *
+ * ПОЛНОСТЬЮ РАБОЧИЙ НАВБАР:
+ *
+ * ✅ Цвета по отделам (COLOR_MAP)
+ * ✅ Command Palette (Cmd+K)
+ * ✅ Уведомления из Firestore (users/{uid}/notifications)
+ *    — реалтайм подписка onSnapshot
+ *    — прочитать одно / все
+ *    — счётчик непрочитанных
+ *    — клик → навигация по link
+ * ✅ UserMenu:
+ *    — Настройки аккаунта → /app/settings?section=profile
+ *    — Безопасность       → /app/settings?section=security
+ *    — Уведомления        → /app/settings?section=notifications
+ *    — Помощь             → /app/help
+ *    — Обратная связь     → /app/help (вкладка feedback)
+ *    — История обновлений → /app/help (вкладка changelog)
+ * ✅ Мобильный ящик с цветами
+ * ✅ Закрытие по Escape / клику снаружи
+ */
+
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import { useEffect, useRef, useState, useCallback } from "react";
 import { createPortal } from "react-dom";
