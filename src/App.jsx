@@ -20,12 +20,12 @@ import Employees from "./Pages/Employees";
 import SalaryStatement from "./Pages/SalaryStatement";
 import Counterpartiespage from "./Pages/Counterpartiespage";
 import Settlements from "./Pages/Settlements";
-import InvitePage from "./Pages/InvitePage";
+import InvitePage from "./Pages/Invitepage";
 import Onboarding from "./Pages/Onboarding";
 import Warehouse from "./Pages/Warehouse";
 import Sales from "./Pages/Sales";
 import Purchases from "./Pages/Purchases";
-import Items from "./Pages/Items";
+import Items from "./Pages/items";
 import Helppage from "./Pages/Helppage";
 
 
