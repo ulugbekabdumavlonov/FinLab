@@ -80,10 +80,10 @@ const buildGroups = (can) => [
   {
     id: "warehouse", label: "Склад", icon: <Package size={16} />, color: "amber",
     items: [
-      can("Sales")     && { to: "/app/sales",     icon: <ShoppingBag size={15} />,  label: "Продажи" },
-      can("Purchases") && { to: "/app/purchases", icon: <ShoppingCart size={15} />, label: "Закупки" },
-      can("Items")     && { to: "/app/items",     icon: <Package size={15} />,      label: "Товары & Услуги" },
-      can("warehouse") && { to: "/app/warehouse", icon: <Warehouse size={15} />,    label: "Склад" },
+      can("sales")     && { to: "/app/Sales",     icon: <ShoppingBag size={15} />,  label: "Продажи" },
+      can("purchases") && { to: "/app/Purchases", icon: <ShoppingCart size={15} />, label: "Закупки" },
+      can("items")     && { to: "/app/Items",     icon: <Package size={15} />,      label: "Товары & Услуги" },
+      can("warehouse") && { to: "/app/Warehouse", icon: <Warehouse size={15} />,    label: "Склад" },
     ].filter(Boolean),
   },
   {
