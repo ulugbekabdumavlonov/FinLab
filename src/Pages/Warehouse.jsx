@@ -4,7 +4,7 @@ import {
   serverTimestamp, collection, onSnapshot, writeBatch,
 } from "firebase/firestore";
 import { auth, db } from "../firebase";
-import { notifyLowStock, notifyNoStock } from ".../notificationService";
+import { notifyLowStock, notifyNoStock } from "../notificationService";
 
 // ─── Firebase helpers ──────────────────────────────────────────────────────────
 const uid     = ()      => auth.currentUser?.uid;
