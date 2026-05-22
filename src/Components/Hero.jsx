@@ -1,306 +1,322 @@
-import { useEffect, useState } from "react";
-import { motion, useScroll, useTransform } from "framer-motion";
+import { useEffect, useState, useRef } from "react";
+import { motion, useScroll, useTransform, AnimatePresence } from "framer-motion";
+import { Link } from "react-router-dom";
 
-const cardStyle = {
-  background: "rgba(255,255,255,0.1)",
-  backdropFilter: "blur(16px)",
-  border: "1px solid rgba(255,255,255,0.2)",
-  boxShadow: "0 16px 50px rgba(0,0,0,0.28), inset 0 1px 0 rgba(255,255,255,0.22)",
-};
-
-const HEADLINES = [
-  {
-    h: <>Контролируй деньги бизнеса <span className="text-indigo-300">в одном месте</span></>,
-    s: "ДДС, P&L и баланс — всё сразу.\nНикаких таблиц, никаких задержек.",
-  },
-  {
-    h: <>Видь прибыль и убытки <span className="text-emerald-300">в реальном времени</span></>,
-    s: "P&L обновляется автоматически.\nСразу видно, где теряются деньги.",
-  },
-  {
-    h: <>Управляй денежным потоком <span className="text-yellow-200">без Excel</span></>,
-    s: "ДДС за любой период — в два клика.\nКассовые разрывы больше не застают врасплох.",
-  },
-  {
-    h: <>Баланс бизнеса всегда <span className="text-pink-300">под рукой</span></>,
-    s: "Активы, пассивы и капитал в одном экране.\nПолная картина для инвесторов и банков.",
-  },
-  {
-    h: <>Финансовые отчёты <span className="text-indigo-300">за 30 секунд</span></>,
-    s: "Не нужен бухгалтер для базового анализа.\nДанные всегда актуальны и понятны.",
-  },
+const METRICS = [
+  { label: "ДДС", value: "+$12 430", sub: "Чистый поток", color: "#4ade80", accent: "#22c55e" },
+  { label: "P&L", value: "+$24 200", sub: "Прибыль / мес", color: "#818cf8", accent: "#6366f1" },
+  { label: "Баланс", value: "$84 320", sub: "Чистые активы", color: "#fb923c", accent: "#f97316" },
+  { label: "Выручка", value: "$142 800", sub: "Текущий квартал", color: "#facc15", accent: "#eab308" },
 ];
 
-function ProgressRow({ label, amount, value, color, delay }) {
+const ROTATORS = [
+  { tag: "Движение денег", h: "Видь куда уходит каждый рубль", hl: "в реальном времени", color: "#818cf8" },
+  { tag: "Автоматизация", h: "Забудь про Excel и ручной ввод", hl: "навсегда", color: "#4ade80" },
+  { tag: "P&L", h: "Прибыль и убытки обновляются", hl: "без бухгалтера", color: "#fb923c" },
+  { tag: "AI-аналитика", h: "Искусственный интеллект находит", hl: "скрытые потери", color: "#facc15" },
+];
+
+function MiniSparkline({ color }) {
+  const pts = [12, 18, 14, 24, 20, 30, 26, 36];
+  const max = Math.max(...pts), min = Math.min(...pts);
+  const norm = pts.map(p => 1 - (p - min) / (max - min));
+  const w = 80, h = 32;
+  const d = norm.map((y, i) => `${i === 0 ? "M" : "L"} ${(i / (pts.length - 1)) * w} ${y * h}`).join(" ");
   return (
-    <div className="mt-2">
-      <div className="flex justify-between text-xs mb-1">
-        <span style={{ color: "rgba(255,255,255,0.5)" }}>{label}</span>
-        <span className="font-medium" style={{ color: "rgba(255,255,255,0.85)" }}>{amount}</span>
-      </div>
-      <div className="h-1.5 rounded-full overflow-hidden" style={{ background: "rgba(255,255,255,0.1)" }}>
-        <motion.div
-          className="h-full rounded-full"
-          style={{ background: color }}
-          initial={{ width: 0 }}
-          animate={{ width: `${value}%` }}
-          transition={{ delay, duration: 1, ease: "easeOut" }}
-        />
-      </div>
-    </div>
+    <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`} fill="none">
+      <defs>
+        <linearGradient id={`sg${color.replace("#","")}`} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor={color} stopOpacity="0.3" />
+          <stop offset="100%" stopColor={color} stopOpacity="0" />
+        </linearGradient>
+      </defs>
+      <path d={d + ` L ${w} ${h} L 0 ${h} Z`} fill={`url(#sg${color.replace("#","")})`} />
+      <path d={d} stroke={color} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
   );
 }
 
-function BarChart() {
-  const bars = [
-    { h: 24, o: 0.4 }, { h: 34, o: 0.5 }, { h: 20, o: 0.35 },
-    { h: 44, o: 0.7 }, { h: 30, o: 0.5 }, { h: 50, o: 1 },
-  ];
+function MetricCard({ m, index }) {
+  const [animated, setAnimated] = useState(false);
+  useEffect(() => { setTimeout(() => setAnimated(true), 600 + index * 150); }, []);
   return (
-    <div className="flex items-end gap-1 mt-2.5" style={{ height: 52 }}>
-      {bars.map((b, i) => (
-        <motion.div
-          key={i}
-          style={{ height: b.h, opacity: b.o, background: "#818cf8", transformOrigin: "bottom", width: 18 }}
-          className="rounded-t"
-          initial={{ scaleY: 0 }}
-          animate={{ scaleY: 1 }}
-          transition={{ delay: 0.8 + i * 0.08, duration: 0.5, ease: "easeOut" }}
-        />
-      ))}
-    </div>
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: 0.4 + index * 0.12, duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
+      style={{
+        background: "rgba(255,255,255,0.04)",
+        border: "1px solid rgba(255,255,255,0.08)",
+        borderRadius: 16,
+        padding: "14px 16px",
+        backdropFilter: "blur(12px)",
+        position: "relative",
+        overflow: "hidden",
+      }}
+    >
+      <div style={{
+        position: "absolute", inset: 0, borderRadius: 16,
+        background: `radial-gradient(ellipse at 70% 20%, ${m.accent}18 0%, transparent 65%)`,
+        pointerEvents: "none"
+      }} />
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 6 }}>
+        <span style={{ fontSize: 11, color: "rgba(255,255,255,0.4)", textTransform: "uppercase", letterSpacing: "0.08em" }}>{m.label}</span>
+        <span style={{
+          fontSize: 10, fontWeight: 600, color: m.color,
+          background: `${m.accent}20`, borderRadius: 20, padding: "2px 8px"
+        }}>↑ LIVE</span>
+      </div>
+      <div style={{ fontSize: 22, fontWeight: 700, color: m.color, letterSpacing: "-0.03em", marginBottom: 2 }}>
+        {m.value}
+      </div>
+      <div style={{ fontSize: 11, color: "rgba(255,255,255,0.35)", marginBottom: 10 }}>{m.sub}</div>
+      <MiniSparkline color={m.color} />
+    </motion.div>
   );
+}
+
+function AnimatedCounter({ value }) {
+  const [display, setDisplay] = useState("0");
+  useEffect(() => {
+    const num = parseInt(value.replace(/\D/g, ""));
+    let start = 0;
+    const step = num / 40;
+    const timer = setInterval(() => {
+      start += step;
+      if (start >= num) { setDisplay(value); clearInterval(timer); }
+      else setDisplay("+" + Math.floor(start).toLocaleString("ru"));
+    }, 30);
+    return () => clearInterval(timer);
+  }, [value]);
+  return <>{display}</>;
 }
 
 export default function Hero() {
   const { scrollY } = useScroll();
-  const y1 = useTransform(scrollY, [0, 500], [0, -50]);
-  const y2 = useTransform(scrollY, [0, 500], [0, -90]);
-  const y3 = useTransform(scrollY, [0, 500], [0, -60]);
-  const y4 = useTransform(scrollY, [0, 500], [0, -70]);
-
+  const yBg = useTransform(scrollY, [0, 600], [0, -80]);
   const [idx, setIdx] = useState(0);
-  const [visible, setVisible] = useState(true);
+  const [phase, setPhase] = useState("in");
 
   useEffect(() => {
-    const interval = setInterval(() => {
-      setVisible(false);
-      setTimeout(() => {
-        setIdx((i) => (i + 1) % HEADLINES.length);
-        setVisible(true);
-      }, 400);
-    }, 4000);
-    return () => clearInterval(interval);
+    const id = setInterval(() => {
+      setPhase("out");
+      setTimeout(() => { setIdx(i => (i + 1) % ROTATORS.length); setPhase("in"); }, 350);
+    }, 4500);
+    return () => clearInterval(id);
   }, []);
 
-  const current = HEADLINES[idx];
+  const cur = ROTATORS[idx];
 
   return (
-    <div
-      className="relative min-h-screen overflow-hidden text-white flex flex-col md:flex-row items-center px-6 md:px-14 pt-24 md:pt-0 pb-12 md:pb-0"
-      style={{
-        background: "linear-gradient(135deg, #f97316 0%, #a855f7 38%, #6366f1 65%, #1e1b4b 100%)",
-      }}
-    >
-      {/* Glows */}
-      <div className="absolute rounded-full pointer-events-none"
-        style={{ top: -40, right: "28%", width: 280, height: 280, background: "rgba(168,85,247,0.3)", filter: "blur(70px)" }} />
-      <div className="absolute rounded-full pointer-events-none"
-        style={{ bottom: 10, right: "8%", width: 220, height: 220, background: "rgba(99,102,241,0.25)", filter: "blur(60px)" }} />
-
-      {/* Wave */}
-      <div className="absolute bottom-0 left-0 right-0"
-        style={{ height: 100, background: "linear-gradient(to top, rgba(220,215,255,0.15), transparent)", borderRadius: "60% 60% 0 0 / 20px 20px 0 0" }} />
-
-      {/* LEFT */}
-      <motion.div
-        className="relative z-10 w-full md:flex-none md:max-w-[600px] text-center md:text-left"
-        initial={{ opacity: 0, x: -40 }}
-        animate={{ opacity: 1, x: 0 }}
-        transition={{ duration: 0.8, ease: "easeOut" }}
-      >
-        <div className="inline-flex items-center gap-2 mb-4 px-3 py-1.5 rounded-full text-xs border border-white/20"
-          style={{ background: "rgba(255,255,255,0.12)", backdropFilter: "blur(10px)" }}>
-          <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />
-          Финансы в реальном времени
-        </div>
-
-        {/* Animated headline */}
-        <div className="mb-4">
-          <motion.h1
-            key={idx}
-            className="text-3xl sm:text-4xl md:text-5xl font-bold leading-[1.1]"
-            initial={{ opacity: 0, y: 14 }}
-            animate={{ opacity: visible ? 1 : 0, y: visible ? 0 : -10 }}
-            transition={{ duration: 0.4, ease: "easeOut" }}
-          >
-            {current.h}
-          </motion.h1>
-        </div>
-
-        <motion.p
-          key={`sub-${idx}`}
-          className="text-sm leading-relaxed whitespace-pre-line"
-          style={{ color: "rgba(255,255,255,0.6)" }}
-          initial={{ opacity: 0 }}
-          animate={{ opacity: visible ? 1 : 0 }}
-          transition={{ duration: 0.4, delay: 0.1 }}
-        >
-          {current.s}
-        </motion.p>
-
-        <motion.button
-          className="mt-6 inline-flex items-center gap-2 bg-white text-indigo-700 font-bold text-sm px-5 py-3 rounded-xl shadow-lg"
-          whileHover={{ scale: 1.04 }}
-          whileTap={{ scale: 0.97 }}
-        >
-          Попробовать бесплатно →
-        </motion.button>
-        <p className="mt-2 text-xs" style={{ color: "rgba(255,255,255,0.4)" }}>50+ отчётов · бесплатно 14 дней</p>
+    <div style={{
+      minHeight: "100vh",
+      background: "#080b14",
+      position: "relative",
+      overflow: "hidden",
+      display: "flex",
+      flexDirection: "column",
+    }}>
+      {/* Animated mesh bg */}
+      <motion.div style={{ position: "absolute", inset: 0, y: yBg, pointerEvents: "none" }}>
+        <div style={{
+          position: "absolute", top: "-10%", left: "30%", width: 700, height: 700,
+          background: "radial-gradient(ellipse, rgba(99,102,241,0.18) 0%, transparent 65%)",
+          filter: "blur(40px)"
+        }} />
+        <div style={{
+          position: "absolute", bottom: "5%", right: "-5%", width: 500, height: 500,
+          background: "radial-gradient(ellipse, rgba(74,222,128,0.12) 0%, transparent 65%)",
+          filter: "blur(60px)"
+        }} />
+        <div style={{
+          position: "absolute", top: "20%", left: "-10%", width: 400, height: 400,
+          background: "radial-gradient(ellipse, rgba(249,115,22,0.1) 0%, transparent 65%)",
+          filter: "blur(50px)"
+        }} />
+        {/* Grid lines */}
+        <svg style={{ position: "absolute", inset: 0, width: "100%", height: "100%", opacity: 0.04 }}>
+          <defs>
+            <pattern id="grid" width="60" height="60" patternUnits="userSpaceOnUse">
+              <path d="M 60 0 L 0 0 0 60" fill="none" stroke="white" strokeWidth="0.5" />
+            </pattern>
+          </defs>
+          <rect width="100%" height="100%" fill="url(#grid)" />
+        </svg>
       </motion.div>
 
-      {/* CARDS — на мобильных показываем только главную карточку ДДС */}
-      <div className="relative w-full md:flex-1 md:ml-6 mt-10 md:mt-0" style={{ minHeight: 300 }}>
+      {/* Content */}
+      <div style={{
+        position: "relative", zIndex: 10,
+        display: "flex", flexDirection: "row", flexWrap: "wrap",
+        alignItems: "center", justifyContent: "center",
+        minHeight: "100vh", padding: "100px 48px 60px", gap: 60, maxWidth: 1280, margin: "0 auto", width: "100%"
+      }}>
 
-        {/* На мобильном — только ДДС карточка по центру */}
-        <div className="md:hidden flex justify-center">
+        {/* LEFT */}
+        <div style={{ flex: "1 1 480px", maxWidth: 560 }}>
+          {/* Live badge */}
           <motion.div
-            className="rounded-2xl p-5 w-[280px]"
-            style={cardStyle}
-            initial={{ opacity: 0, y: 30 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, delay: 0.3 }}
+            initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6 }}
+            style={{
+              display: "inline-flex", alignItems: "center", gap: 8,
+              background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.12)",
+              borderRadius: 100, padding: "6px 14px", marginBottom: 24, backdropFilter: "blur(10px)"
+            }}
           >
-            <div className="flex justify-between items-center mb-3">
-              <p className="text-sm text-white/60">ДДС</p>
-              <span className="text-xs text-green-400 bg-green-400/10 px-2 py-0.5 rounded-full">+12%</span>
-            </div>
-            <p className="text-2xl font-bold text-indigo-300">$12,430</p>
-            <p className="text-xs text-white/50 mb-3">Остаток на счетах</p>
-            <div className="space-y-2">
-              <ProgressRow label="Поступления" amount="+$38,400" value={78}
-                color="linear-gradient(90deg,#818cf8,#a5b4fc)" delay={0.6} />
-              <ProgressRow label="Расходы" amount="−$25,970" value={53}
-                color="linear-gradient(90deg,#f87171,#fb923c)" delay={0.8} />
-            </div>
-            <div className="flex justify-between mt-3 pt-3 border-t border-white/10">
-              <span className="text-xs text-white/50">Чистый поток</span>
-              <span className="text-sm font-semibold text-green-400">+$12,430</span>
-            </div>
+            <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#4ade80", boxShadow: "0 0 8px #4ade80", display: "block" }} />
+            <span style={{ fontSize: 12, color: "rgba(255,255,255,0.6)", fontWeight: 500 }}>Финансы в реальном времени</span>
+          </motion.div>
+
+          {/* Rotator tag */}
+          <AnimatePresence mode="wait">
+            <motion.span
+              key={`tag-${idx}`}
+              initial={{ opacity: 0 }} animate={{ opacity: phase === "in" ? 1 : 0 }} exit={{ opacity: 0 }}
+              style={{
+                display: "inline-block", fontSize: 12, fontWeight: 600,
+                color: cur.color, background: `${cur.color}18`,
+                borderRadius: 6, padding: "3px 10px", marginBottom: 12, letterSpacing: "0.04em"
+              }}
+            >
+              {cur.tag}
+            </motion.span>
+          </AnimatePresence>
+
+          {/* Headline */}
+          <AnimatePresence mode="wait">
+            <motion.h1
+              key={`h-${idx}`}
+              initial={{ opacity: 0, y: 16 }}
+              animate={{ opacity: phase === "in" ? 1 : 0, y: phase === "in" ? 0 : -8 }}
+              transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
+              style={{
+                fontSize: "clamp(32px, 4vw, 54px)", fontWeight: 800, lineHeight: 1.08,
+                color: "#fff", marginBottom: 8, letterSpacing: "-0.03em"
+              }}
+            >
+              {cur.h}{" "}
+              <span style={{ color: cur.color }}>{cur.hl}</span>
+            </motion.h1>
+          </AnimatePresence>
+
+          <motion.p
+            initial={{ opacity: 0 }} animate={{ opacity: 0.5 }} transition={{ delay: 0.5 }}
+            style={{ fontSize: 16, color: "rgba(255,255,255,0.55)", lineHeight: 1.7, marginBottom: 36, maxWidth: 440 }}
+          >
+            Единственная платформа управленческого учёта, которая автоматизирует ДДС, P&L и Баланс — без бухгалтера, без задержек, без Excel.
+          </motion.p>
+
+          {/* CTA buttons */}
+          <motion.div
+            initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.6 }}
+            style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "center", marginBottom: 40 }}
+          >
+            <Link to="/register">
+              <motion.button
+                whileHover={{ scale: 1.03, boxShadow: "0 0 40px rgba(99,102,241,0.5)" }}
+                whileTap={{ scale: 0.97 }}
+                style={{
+                  display: "inline-flex", alignItems: "center", gap: 8,
+                  background: "linear-gradient(135deg, #6366f1 0%, #818cf8 100%)",
+                  color: "#fff", border: "none", borderRadius: 14,
+                  padding: "14px 28px", fontSize: 15, fontWeight: 700, cursor: "pointer",
+                  boxShadow: "0 0 20px rgba(99,102,241,0.3)"
+                }}
+              >
+                Попробовать бесплатно
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                  <path d="M3 8h10M8 3l5 5-5 5" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              </motion.button>
+            </Link>
+            <Link to="/demo">
+              <motion.button
+                whileHover={{ background: "rgba(255,255,255,0.08)" }}
+                style={{
+                  display: "inline-flex", alignItems: "center", gap: 8,
+                  background: "rgba(255,255,255,0.04)", color: "rgba(255,255,255,0.7)",
+                  border: "1px solid rgba(255,255,255,0.12)", borderRadius: 14,
+                  padding: "14px 24px", fontSize: 15, fontWeight: 600, cursor: "pointer"
+                }}
+              >
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                  <circle cx="8" cy="8" r="7" stroke="currentColor" strokeWidth="1.2" />
+                  <path d="M6 5.5l5 2.5-5 2.5V5.5z" fill="currentColor" />
+                </svg>
+                Смотреть демо
+              </motion.button>
+            </Link>
+          </motion.div>
+
+          {/* Stats row */}
+          <motion.div
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.8 }}
+            style={{ display: "flex", gap: 32, flexWrap: "wrap" }}
+          >
+            {[["500+", "компаний"], ["50+", "отчётов"], ["14 дней", "бесплатно"]].map(([v, l]) => (
+              <div key={l}>
+                <div style={{ fontSize: 22, fontWeight: 800, color: "#fff", letterSpacing: "-0.03em" }}>{v}</div>
+                <div style={{ fontSize: 12, color: "rgba(255,255,255,0.4)" }}>{l}</div>
+              </div>
+            ))}
           </motion.div>
         </div>
 
-        {/* На десктопе — все 4 карточки */}
-        <div className="hidden md:block" style={{ minHeight: 440 }}>
-          {/* P&L */}
+        {/* RIGHT — cards */}
+        <div style={{ flex: "1 1 360px", maxWidth: 440 }}>
+          {/* Main dashboard card */}
           <motion.div
-            className="absolute rounded-2xl p-4"
-            style={{ ...cardStyle, top: 0, left: 0, width: 200, rotate: -1, y: y1 }}
-            initial={{ opacity: 0, y: 30 }}
-            animate={{ opacity: 1, y: [0, -10, 0] }}
-            transition={{
-              opacity: { duration: 0.6, delay: 0.3 },
-              y: { duration: 6, delay: 0.9, repeat: Infinity, ease: "easeInOut" },
+            initial={{ opacity: 0, scale: 0.94 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ delay: 0.3, duration: 0.8, ease: [0.22, 1, 0.36, 1] }}
+            style={{
+              background: "rgba(255,255,255,0.04)",
+              border: "1px solid rgba(255,255,255,0.1)",
+              borderRadius: 24,
+              padding: 24,
+              backdropFilter: "blur(20px)",
+              marginBottom: 12,
             }}
           >
-            <p className="text-xs uppercase tracking-wider mb-1" style={{ color: "rgba(255,255,255,0.5)" }}>P&L</p>
-            <p className="text-xl font-bold text-green-400">+$24,200</p>
-            <p className="text-xs" style={{ color: "rgba(255,255,255,0.4)" }}>Прибыль за месяц</p>
-            <span className="inline-block mt-1.5 text-xs px-2 py-0.5 rounded-full text-green-400" style={{ background: "rgba(74,222,128,0.18)" }}>
-              ↑ 18% к прошлому
-            </span>
-            <BarChart />
-          </motion.div>
-
-          {/* ДДС — main */}
-          <motion.div
-            className="absolute rounded-2xl p-5 z-30"
-            style={{ ...cardStyle, top: 30, left: 170, width: 300, y: y2 }}
-            initial={{ opacity: 0, y: 30 }}
-            animate={{ opacity: 1, y: [0, -10, 0] }}
-            transition={{
-              opacity: { duration: 0.6, delay: 0.3 },
-              y: { duration: 6, delay: 0.9, repeat: Infinity, ease: "easeInOut" },
-            }}
-          >
-            <div className="flex justify-between items-center mb-3">
-              <p className="text-sm text-white/60">ДДС</p>
-              <span className="text-xs text-green-400 bg-green-400/10 px-2 py-0.5 rounded-full">+12%</span>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+              <span style={{ fontSize: 13, color: "rgba(255,255,255,0.5)", fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase" }}>Финансовый дашборд</span>
+              <span style={{
+                fontSize: 11, color: "#4ade80", background: "rgba(74,222,128,0.12)",
+                borderRadius: 100, padding: "4px 12px", fontWeight: 600
+              }}>● LIVE</span>
             </div>
-            <p className="text-2xl font-bold text-indigo-300">$12,430</p>
-            <p className="text-xs text-white/50 mb-3">Остаток на счетах</p>
-            <div className="space-y-2">
-              <ProgressRow label="Поступления" amount="+$38,400" value={78}
-                color="linear-gradient(90deg,#818cf8,#a5b4fc)" delay={0.6} />
-              <ProgressRow label="Расходы" amount="−$25,970" value={53}
-                color="linear-gradient(90deg,#f87171,#fb923c)" delay={0.8} />
-            </div>
-            <div className="flex justify-between mt-3 pt-3 border-t border-white/10">
-              <span className="text-xs text-white/50">Чистый поток</span>
-              <span className="text-sm font-semibold text-green-400">+$12,430</span>
-            </div>
-            <div className="mt-3 flex items-end gap-1 h-10">
-              {[20, 35, 28, 45, 38, 55].map((h, i) => (
-                <div key={i} style={{ height: h, width: 6 }} className="bg-indigo-400/70 rounded" />
-              ))}
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+              {METRICS.map((m, i) => <MetricCard key={m.label} m={m} index={i} />)}
             </div>
           </motion.div>
 
-          {/* Баланс */}
+          {/* AI insight card */}
           <motion.div
-            className="absolute rounded-2xl p-4 z-40"
-            style={{ ...cardStyle, bottom: 20, left: 155, width: 195, rotate: -0.5, y: y3 }}
-            initial={{ opacity: 0, y: 30 }}
-            animate={{ opacity: 1, y: [0, -8, 0] }}
-            transition={{
-              opacity: { duration: 0.6, delay: 0.7 },
-              y: { duration: 5.5, delay: 1.3, repeat: Infinity, ease: "easeInOut" },
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.9, duration: 0.6 }}
+            style={{
+              background: "rgba(99,102,241,0.08)",
+              border: "1px solid rgba(99,102,241,0.2)",
+              borderRadius: 16,
+              padding: "14px 18px",
+              display: "flex", gap: 12, alignItems: "flex-start",
             }}
           >
-            <p className="text-xs uppercase tracking-wider mb-1" style={{ color: "rgba(255,255,255,0.5)" }}>Баланс</p>
-            <p className="text-xl font-bold text-indigo-100">$84,320</p>
-            <p className="text-xs" style={{ color: "rgba(255,255,255,0.4)" }}>Чистые активы</p>
-            <div className="flex h-1.5 rounded-full overflow-hidden mt-2.5">
-              <motion.div className="flex-[2]"
-                style={{ background: "linear-gradient(90deg,#818cf8,#a5b4fc)" }}
-                initial={{ scaleX: 0 }} animate={{ scaleX: 1 }}
-                transition={{ delay: 1.5, duration: 0.8 }} />
-              <div className="flex-1" style={{ background: "rgba(248,113,113,0.6)" }} />
+            <div style={{
+              width: 36, height: 36, borderRadius: 10,
+              background: "rgba(99,102,241,0.2)", flexShrink: 0,
+              display: "flex", alignItems: "center", justifyContent: "center"
+            }}>
+              <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+                <path d="M9 2a7 7 0 100 14A7 7 0 009 2zm0 3v4l3 1.5" stroke="#818cf8" strokeWidth="1.5" strokeLinecap="round" />
+              </svg>
             </div>
-            <div className="flex justify-between text-xs mt-1.5" style={{ color: "rgba(255,255,255,0.4)" }}>
-              <span>Активы 67%</span>
-              <span className="text-red-400">Пассивы 33%</span>
-            </div>
-          </motion.div>
-
-          {/* Выручка */}
-          <motion.div
-            className="absolute rounded-2xl p-4 z-20"
-            style={{ ...cardStyle, top: 10, right: 0, width: 170, rotate: 2, y: y4 }}
-            initial={{ opacity: 0, y: 30 }}
-            animate={{ opacity: 1, y: [0, -12, 0] }}
-            transition={{
-              opacity: { duration: 0.6, delay: 0.9 },
-              y: { duration: 6.5, delay: 1.5, repeat: Infinity, ease: "easeInOut" },
-            }}
-          >
-            <p className="text-xs uppercase tracking-wider mb-1" style={{ color: "rgba(255,255,255,0.5)" }}>Выручка</p>
-            <p className="text-lg font-bold text-yellow-200">$142,800</p>
-            <p className="text-xs" style={{ color: "rgba(255,255,255,0.4)" }}>За текущий квартал</p>
-            <span className="inline-block mt-1.5 text-xs px-2 py-0.5 rounded-full text-green-400" style={{ background: "rgba(74,222,128,0.18)" }}>
-              ↑ Q3 рост 24%
-            </span>
-            <div className="mt-3 pt-2.5" style={{ borderTop: "1px solid rgba(255,255,255,0.1)" }}>
-              <div className="flex justify-between text-xs mb-1" style={{ color: "rgba(255,255,255,0.45)" }}>
-                <span>Цель</span><span className="text-yellow-200">$160k</span>
+            <div>
+              <div style={{ fontSize: 12, color: "#818cf8", fontWeight: 600, marginBottom: 4 }}>AI-инсайт</div>
+              <div style={{ fontSize: 13, color: "rgba(255,255,255,0.6)", lineHeight: 1.5 }}>
+                Ваши расходы на маркетинг выросли на 34%, но конверсия упала. Рекомендуем пересмотреть каналы.
               </div>
-              <div className="h-1.5 rounded-full overflow-hidden" style={{ background: "rgba(255,255,255,0.1)" }}>
-                <motion.div className="h-full rounded-full"
-                  style={{ background: "linear-gradient(90deg,#fbbf24,#fde68a)" }}
-                  initial={{ width: 0 }} animate={{ width: "89%" }}
-                  transition={{ delay: 1.8, duration: 1 }} />
-              </div>
-              <p className="text-xs mt-1" style={{ color: "rgba(255,255,255,0.3)" }}>89% выполнено</p>
             </div>
           </motion.div>
         </div>
