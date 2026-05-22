@@ -25,7 +25,7 @@ import Onboarding from "./Pages/Onboarding";
 import Warehouse from "./Pages/Warehouse";
 import Sales from "./Pages/Sales";
 import Purchases from "./Pages/Purchases";
-import Items from "./Pages/items";
+import Items from "./Pages/Items";
 import Helppage from "./Pages/Helppage";
 
 
