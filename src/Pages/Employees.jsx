@@ -10,6 +10,7 @@ import {
 import { getAuth, onAuthStateChanged } from "firebase/auth";
 import { db } from "../firebase";
 
+
 // ─── Constants ────────────────────────────────────────────────────────────────
 const STATUSES     = { active: "Активный", on_leave: "В отпуске", terminated: "Уволен" };
 const EMP_TYPES    = { full_time: "Полная ставка", part_time: "Частичная", contract: "Контракт" };
@@ -350,7 +351,7 @@ export default function Employees() {
   if (!uid) return <div style={{ padding: 40, textAlign: "center", color: C.inkLight }}>Загрузка…</div>;
 
   return (
-    <div style={{ fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif", maxWidth: 1100, padding: "1.5rem 1rem", color: C.ink, background: C.surfaceAlt, minHeight: "100vh" }}>
+    <div style={{ fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif", width: "100%", color: C.ink }}>
 
       {/* Заголовок */}
       <div style={{ marginBottom: "1rem" }}>
