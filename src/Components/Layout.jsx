@@ -11,7 +11,6 @@ export default function Layout() {
                   || location.pathname.toLowerCase().includes("mywallet")
                   || location.pathname.toLowerCase().includes("mycompany")
                   || location.pathname.toLowerCase().includes("myproject")
-                  || location.pathname.toLowerCase().includes("mycategories")
                   || location.pathname.toLowerCase().includes("counterpartiespage")
                   || location.pathname.toLowerCase().includes("dashboard");
   
