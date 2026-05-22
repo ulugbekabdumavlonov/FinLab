@@ -1,4 +1,4 @@
-// ─────────────────────────────────────────────────────────────────────────────
+\// ─────────────────────────────────────────────────────────────────────────────
 // SalaryStatement.jsx — Расчётные ведомости (токены CashFlow)
 // ─────────────────────────────────────────────────────────────────────────────
 import React, { useEffect, useState, useMemo } from "react";
@@ -411,7 +411,7 @@ export default function SalaryStatement() {
   if (!uid) return <div style={{ padding: 40, textAlign: "center", color: C.inkLight, fontSize: 13 }}>Загрузка…</div>;
 
   return (
-    <div style={{ fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif", maxWidth: 1100, padding: "1.5rem 1rem", color: C.ink, background: C.surfaceAlt, minHeight: "100vh" }}>
+    <div style={{ fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif", width: "100%", color: C.ink }}>
 
       {/* Заголовок */}
       <div style={{ marginBottom: "1rem" }}>
