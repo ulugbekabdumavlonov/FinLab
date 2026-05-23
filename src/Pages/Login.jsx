@@ -1,131 +1,509 @@
 import { useState } from "react";
+
 import {
   signInWithEmailAndPassword,
   signInWithPopup,
   GoogleAuthProvider,
 } from "firebase/auth";
+
 import { auth } from "../firebase";
+
 import { useNavigate } from "react-router-dom";
-import { FaEye, FaEyeSlash, FaGoogle } from "react-icons/fa";
+
 import { motion } from "framer-motion";
 
+import {
+  Eye,
+  EyeOff,
+  ArrowRight,
+} from "lucide-react";
+
+import { FcGoogle } from "react-icons/fc";
+
 export default function Login() {
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
+  const navigate =
+    useNavigate();
 
-  const navigate = useNavigate();
-  const provider = new GoogleAuthProvider();
+  const provider =
+    new GoogleAuthProvider();
 
-  const handleLogin = async () => {
-    try {
-      await signInWithEmailAndPassword(auth, email, password);
-      navigate("/app");
-    } catch (err) {
-      alert(err.message);
-    }
-  };
+  const [email, setEmail] =
+    useState("");
 
-  const handleGoogle = async () => {
-    try {
-      await signInWithPopup(auth, provider);
-      navigate("/app");
-    } catch (err) {
-      alert(err.message);
-    }
-  };
+  const [password, setPassword] =
+    useState("");
+
+  const [show, setShow] =
+    useState(false);
+
+  const [loading, setLoading] =
+    useState(false);
+
+  const handleLogin =
+    async () => {
+      if (!email || !password)
+        return alert(
+          "Заполните поля"
+        );
+
+      try {
+        setLoading(true);
+
+        await signInWithEmailAndPassword(
+          auth,
+          email,
+          password
+        );
+
+        navigate("/app");
+      } catch (err) {
+        alert(err.message);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+  const handleGoogle =
+    async () => {
+      try {
+        await signInWithPopup(
+          auth,
+          provider
+        );
+
+        navigate("/app");
+      } catch (err) {
+        alert(err.message);
+      }
+    };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-[#1e1b4b] via-[#312e81] to-[#020617] p-4 md:p-6">
+    <section
+      style={{
+        minHeight: "100vh",
+        background:
+          "#050816",
+        display: "flex",
+        alignItems: "center",
+        justifyContent:
+          "center",
+        padding:
+          "40px 20px",
+        overflow: "hidden",
+        position: "relative",
+      }}
+    >
+      {/* GLOW */}
+      <div
+        style={{
+          position: "absolute",
+          top: -150,
+          right: -120,
+          width: 320,
+          height: 320,
+          borderRadius: "50%",
+          background:
+            "rgba(99,102,241,.18)",
+          filter: "blur(120px)",
+        }}
+      />
 
-      {/* MAIN CONTAINER */}
-      <div className="w-full max-w-6xl flex flex-col md:flex-row rounded-3xl overflow-hidden shadow-2xl border border-white/10">
+      <motion.div
+        initial={{
+          opacity: 0,
+          y: 20,
+        }}
+        animate={{
+          opacity: 1,
+          y: 0,
+        }}
+        transition={{
+          duration: 0.5,
+        }}
+        style={{
+          width: "100%",
+          maxWidth: 1000,
+          display: "grid",
+          gridTemplateColumns:
+            "repeat(auto-fit,minmax(320px,1fr))",
+          background:
+            "rgba(255,255,255,.03)",
+          border:
+            "1px solid rgba(255,255,255,.06)",
+          borderRadius: 36,
+          overflow: "hidden",
+          backdropFilter:
+            "blur(20px)",
+          boxShadow:
+            "0 20px 60px rgba(0,0,0,.45)",
+          position: "relative",
+          zIndex: 2,
+        }}
+      >
+        {/* LEFT */}
+        <div
+          style={{
+            padding:
+              "70px 50px",
+            background:
+              "linear-gradient(135deg,#111827,#1e1b4b)",
+            position: "relative",
+          }}
+        >
+          <div
+            style={{
+              position:
+                "absolute",
+              inset: 0,
+              background:
+                "radial-gradient(circle at top right,rgba(99,102,241,.25),transparent 40%)",
+            }}
+          />
 
-        {/* LEFT SIDE (ART / VISUAL) */}
-        <div className="hidden md:flex w-1/2 relative bg-gradient-to-br from-indigo-600 via-purple-600 to-blue-500 items-center justify-center min-h-[650px]">
-          <div className="absolute w-[300px] h-[300px] bg-white/20 blur-[120px] rounded-full"></div>
-          <motion.div
-            initial={{ opacity: 0, scale: 0.9 }}
-            animate={{ opacity: 1, scale: 1 }}
-            className="text-white text-center z-10 px-10"
+          <div
+            style={{
+              position:
+                "relative",
+              zIndex: 2,
+            }}
           >
-            <h2 className="text-4xl font-bold mb-4">Finlab</h2>
-            <p className="text-white/80">
-              Управляй финансами бизнеса, анализируй ДДС, P&L и баланс в одном месте
-            </p>
-          </motion.div>
-        </div>
+            <div
+              style={{
+                display:
+                  "inline-block",
+                padding:
+                  "10px 16px",
+                borderRadius:
+                  999,
+                background:
+                  "rgba(255,255,255,.06)",
+                border:
+                  "1px solid rgba(255,255,255,.08)",
+                color:
+                  "rgba(255,255,255,.6)",
+                fontSize: 12,
+                fontWeight: 700,
+                marginBottom: 26,
+              }}
+            >
+              FINLAB
+            </div>
 
-        {/* MOBILE HEADER (только на телефоне) */}
-        <div className="flex md:hidden w-full bg-gradient-to-br from-indigo-600 via-purple-600 to-blue-500 items-center justify-center py-10 px-6">
-          <div className="text-white text-center">
-            <h2 className="text-3xl font-bold mb-2">Finlab</h2>
-            <p className="text-white/80 text-sm">
-              Управляй финансами бизнеса в одном месте
+            <h1
+              style={{
+                fontSize:
+                  "clamp(42px,6vw,68px)",
+                lineHeight: 0.95,
+                fontWeight: 900,
+                letterSpacing:
+                  "-.06em",
+                color: "#fff",
+                marginBottom: 20,
+              }}
+            >
+              Добро
+              <br />
+              пожаловать
+            </h1>
+
+            <p
+              style={{
+                color:
+                  "rgba(255,255,255,.45)",
+                lineHeight: 1.8,
+                maxWidth: 400,
+                fontSize: 16,
+              }}
+            >
+              Управляйте
+              финансами,
+              cashflow и
+              аналитикой
+              бизнеса в
+              одном месте.
             </p>
           </div>
         </div>
 
-        {/* RIGHT SIDE (FORM) */}
-        <div className="w-full md:w-1/2 bg-white/10 backdrop-blur-xl flex items-center justify-center py-10 md:py-0">
-          <motion.div
-            initial={{ opacity: 0, y: 30 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="w-full max-w-md px-6 md:px-10"
+        {/* RIGHT */}
+        <div
+          style={{
+            padding:
+              "70px 50px",
+            display: "flex",
+            alignItems:
+              "center",
+            justifyContent:
+              "center",
+            background:
+              "rgba(255,255,255,.02)",
+          }}
+        >
+          <div
+            style={{
+              width: "100%",
+              maxWidth: 380,
+            }}
           >
-            <h2 className="text-3xl font-bold text-white mb-2">Вход</h2>
-            <p className="text-white/60 mb-6 md:mb-8">Введите данные для входа</p>
+            <h2
+              style={{
+                fontSize: 38,
+                fontWeight: 800,
+                color: "#fff",
+                marginBottom: 10,
+                letterSpacing:
+                  "-.05em",
+              }}
+            >
+              Вход
+            </h2>
 
-            <div className="flex flex-col gap-5">
+            <p
+              style={{
+                color:
+                  "rgba(255,255,255,.4)",
+                marginBottom: 32,
+              }}
+            >
+              Введите данные
+              аккаунта
+            </p>
+
+            {/* INPUTS */}
+            <div
+              style={{
+                display: "flex",
+                flexDirection:
+                  "column",
+                gap: 16,
+              }}
+            >
               <input
                 placeholder="Email"
-                onChange={(e) => setEmail(e.target.value)}
-                className="bg-white/10 border border-white/20 rounded-xl px-4 py-3 text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                onChange={(e) =>
+                  setEmail(
+                    e.target.value
+                  )
+                }
+                style={{
+                  padding: 18,
+                  borderRadius: 18,
+                  border:
+                    "1px solid rgba(255,255,255,.08)",
+                  background:
+                    "rgba(255,255,255,.04)",
+                  color: "#fff",
+                  outline: "none",
+                  fontSize: 15,
+                }}
               />
 
-              <div className="relative">
+              {/* PASSWORD */}
+              <div
+                style={{
+                  position:
+                    "relative",
+                }}
+              >
                 <input
-                  type={showPassword ? "text" : "password"}
+                  type={
+                    show
+                      ? "text"
+                      : "password"
+                  }
                   placeholder="Пароль"
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="w-full bg-white/10 border border-white/20 rounded-xl px-4 py-3 pr-10 text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  onChange={(e) =>
+                    setPassword(
+                      e.target.value
+                    )
+                  }
+                  style={{
+                    width:
+                      "100%",
+                    padding: 18,
+                    borderRadius:
+                      18,
+                    border:
+                      "1px solid rgba(255,255,255,.08)",
+                    background:
+                      "rgba(255,255,255,.04)",
+                    color:
+                      "#fff",
+                    outline:
+                      "none",
+                    fontSize: 15,
+                  }}
                 />
-                <div
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-3 text-white/60 cursor-pointer"
+
+                <button
+                  onClick={() =>
+                    setShow(
+                      !show
+                    )
+                  }
+                  style={{
+                    position:
+                      "absolute",
+                    top: "50%",
+                    right: 18,
+                    transform:
+                      "translateY(-50%)",
+                    border:
+                      "none",
+                    background:
+                      "transparent",
+                    color:
+                      "rgba(255,255,255,.45)",
+                    cursor:
+                      "pointer",
+                  }}
                 >
-                  {showPassword ? <FaEyeSlash /> : <FaEye />}
-                </div>
+                  {show ? (
+                    <EyeOff
+                      size={
+                        18
+                      }
+                    />
+                  ) : (
+                    <Eye
+                      size={
+                        18
+                      }
+                    />
+                  )}
+                </button>
               </div>
 
-              <button
-                onClick={handleLogin}
-                className="mt-2 py-3 rounded-xl bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-semibold hover:scale-105 transition shadow-lg"
+              {/* LOGIN BTN */}
+              <motion.button
+                whileHover={{
+                  scale: 1.02,
+                }}
+                whileTap={{
+                  scale: 0.98,
+                }}
+                onClick={
+                  handleLogin
+                }
+                disabled={
+                  loading
+                }
+                style={{
+                  marginTop: 6,
+                  padding:
+                    "18px 20px",
+                  borderRadius:
+                    18,
+                  border:
+                    "none",
+                  cursor:
+                    "pointer",
+                  background:
+                    "linear-gradient(135deg,#6366f1,#8b5cf6)",
+                  color:
+                    "#fff",
+                  fontWeight: 700,
+                  fontSize: 15,
+                  display:
+                    "flex",
+                  alignItems:
+                    "center",
+                  justifyContent:
+                    "center",
+                  gap: 10,
+                  boxShadow:
+                    "0 10px 30px rgba(99,102,241,.25)",
+                }}
               >
-                Войти
+                {loading
+                  ? "Вход..."
+                  : "Войти"}
+
+                {!loading && (
+                  <ArrowRight
+                    size={18}
+                  />
+                )}
+              </motion.button>
+
+              {/* GOOGLE */}
+              <button
+                onClick={
+                  handleGoogle
+                }
+                style={{
+                  padding:
+                    "16px 20px",
+                  borderRadius:
+                    18,
+                  border:
+                    "1px solid rgba(255,255,255,.08)",
+                  background:
+                    "rgba(255,255,255,.03)",
+                  color:
+                    "rgba(255,255,255,.85)",
+                  fontWeight: 600,
+                  fontSize: 15,
+                  display:
+                    "flex",
+                  alignItems:
+                    "center",
+                  justifyContent:
+                    "center",
+                  gap: 12,
+                  cursor:
+                    "pointer",
+                }}
+              >
+                <FcGoogle
+                  size={20}
+                />
+                Войти через
+                Google
               </button>
 
-              <button
-                onClick={handleGoogle}
-                className="flex items-center justify-center gap-2 py-3 rounded-xl bg-white/10 border border-white/20 text-white hover:bg-white/20 transition"
+              {/* FOOTER */}
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent:
+                    "space-between",
+                  marginTop: 4,
+                  fontSize: 14,
+                  color:
+                    "rgba(255,255,255,.4)",
+                }}
               >
-                <FaGoogle />
-                Войти через Google
-              </button>
-
-              <div className="flex justify-between text-sm text-white/60 mt-2">
-                <span className="hover:text-white cursor-pointer">Забыли пароль?</span>
                 <span
-                  onClick={() => navigate("/register")}
-                  className="hover:text-white cursor-pointer"
+                  style={{
+                    cursor:
+                      "pointer",
+                  }}
+                >
+                  Забыли пароль?
+                </span>
+
+                <span
+                  onClick={() =>
+                    navigate(
+                      "/register"
+                    )
+                  }
+                  style={{
+                    color:
+                      "#818cf8",
+                    cursor:
+                      "pointer",
+                    fontWeight: 600,
+                  }}
                 >
                   Регистрация
                 </span>
               </div>
             </div>
-          </motion.div>
+          </div>
         </div>
-      </div>
-    </div>
+      </motion.div>
+    </section>
   );
 }
