@@ -1,13 +1,10 @@
 import { useState } from "react";
-
 import {
-  signInWithEmailAndPassword,
-  signInWithPopup,
-  GoogleAuthProvider,
+  createUserWithEmailAndPassword,
+  updateProfile,
 } from "firebase/auth";
 
 import { auth } from "../firebase";
-
 import { useNavigate } from "react-router-dom";
 
 import { motion } from "framer-motion";
@@ -18,14 +15,11 @@ import {
   ArrowRight,
 } from "lucide-react";
 
-import { FcGoogle } from "react-icons/fc";
+export default function Register() {
+  const navigate = useNavigate();
 
-export default function Login() {
-  const navigate =
-    useNavigate();
-
-  const provider =
-    new GoogleAuthProvider();
+  const [name, setName] =
+    useState("");
 
   const [email, setEmail] =
     useState("");
@@ -39,41 +33,40 @@ export default function Login() {
   const [loading, setLoading] =
     useState(false);
 
-  const handleLogin =
+  const handleRegister =
     async () => {
-      if (!email || !password)
+      if (
+        !name ||
+        !email ||
+        !password
+      ) {
         return alert(
           "Заполните поля"
         );
+      }
 
       try {
         setLoading(true);
 
-        await signInWithEmailAndPassword(
-          auth,
-          email,
-          password
+        const user =
+          await createUserWithEmailAndPassword(
+            auth,
+            email,
+            password
+          );
+
+        await updateProfile(
+          user.user,
+          {
+            displayName: name,
+          }
         );
 
-        navigate("/app");
+        navigate("/onboarding");
       } catch (err) {
         alert(err.message);
       } finally {
         setLoading(false);
-      }
-    };
-
-  const handleGoogle =
-    async () => {
-      try {
-        await signInWithPopup(
-          auth,
-          provider
-        );
-
-        navigate("/app");
-      } catch (err) {
-        alert(err.message);
       }
     };
 
@@ -89,8 +82,8 @@ export default function Login() {
           "center",
         padding:
           "40px 20px",
-        overflow: "hidden",
         position: "relative",
+        overflow: "hidden",
       }}
     >
       {/* GLOW */}
@@ -98,12 +91,12 @@ export default function Login() {
         style={{
           position: "absolute",
           top: -150,
-          right: -120,
-          width: 320,
-          height: 320,
+          left: -150,
+          width: 350,
+          height: 350,
           borderRadius: "50%",
           background:
-            "rgba(99,102,241,.18)",
+            "rgba(99,102,241,.2)",
           filter: "blur(120px)",
         }}
       />
@@ -122,7 +115,7 @@ export default function Login() {
         }}
         style={{
           width: "100%",
-          maxWidth: 1000,
+          maxWidth: 1050,
           display: "grid",
           gridTemplateColumns:
             "repeat(auto-fit,minmax(320px,1fr))",
@@ -186,24 +179,24 @@ export default function Login() {
                 marginBottom: 26,
               }}
             >
-              FINLAB
+              FINLAB AI
             </div>
 
             <h1
               style={{
                 fontSize:
-                  "clamp(42px,6vw,68px)",
+                  "clamp(42px,6vw,70px)",
                 lineHeight: 0.95,
                 fontWeight: 900,
                 letterSpacing:
                   "-.06em",
                 color: "#fff",
-                marginBottom: 20,
+                marginBottom: 22,
               }}
             >
-              Добро
+              Финансы
               <br />
-              пожаловать
+              без хаоса
             </h1>
 
             <p
@@ -211,16 +204,14 @@ export default function Login() {
                 color:
                   "rgba(255,255,255,.45)",
                 lineHeight: 1.8,
-                maxWidth: 400,
+                maxWidth: 420,
                 fontSize: 16,
               }}
             >
-              Управляйте
-              финансами,
-              cashflow и
-              аналитикой
-              бизнеса в
-              одном месте.
+              ДДС, P&L,
+              бюджеты и
+              аналитика в
+              одной системе.
             </p>
           </div>
         </div>
@@ -255,7 +246,7 @@ export default function Login() {
                   "-.05em",
               }}
             >
-              Вход
+              Регистрация
             </h2>
 
             <p
@@ -263,10 +254,12 @@ export default function Login() {
                 color:
                   "rgba(255,255,255,.4)",
                 marginBottom: 32,
+                lineHeight: 1.7,
               }}
             >
-              Введите данные
-              аккаунта
+              Создай аккаунт
+              и начни
+              бесплатно
             </p>
 
             {/* INPUTS */}
@@ -278,25 +271,56 @@ export default function Login() {
                 gap: 16,
               }}
             >
-              <input
-                placeholder="Email"
-                onChange={(e) =>
-                  setEmail(
-                    e.target.value
-                  )
-                }
-                style={{
-                  padding: 18,
-                  borderRadius: 18,
-                  border:
-                    "1px solid rgba(255,255,255,.08)",
-                  background:
-                    "rgba(255,255,255,.04)",
-                  color: "#fff",
-                  outline: "none",
-                  fontSize: 15,
-                }}
-              />
+              {[{
+                value: name,
+                set: setName,
+                placeholder:
+                  "Имя",
+              },{
+                value: email,
+                set: setEmail,
+                placeholder:
+                  "Email",
+              }].map(
+                (
+                  item,
+                  i
+                ) => (
+                  <input
+                    key={i}
+                    value={
+                      item.value
+                    }
+                    placeholder={
+                      item.placeholder
+                    }
+                    onChange={(
+                      e
+                    ) =>
+                      item.set(
+                        e
+                          .target
+                          .value
+                      )
+                    }
+                    style={{
+                      padding:
+                        "18px",
+                      borderRadius:
+                        18,
+                      border:
+                        "1px solid rgba(255,255,255,.08)",
+                      background:
+                        "rgba(255,255,255,.04)",
+                      color:
+                        "#fff",
+                      outline:
+                        "none",
+                      fontSize: 15,
+                    }}
+                  />
+                )
+              )}
 
               {/* PASSWORD */}
               <div
@@ -312,15 +336,23 @@ export default function Login() {
                       : "password"
                   }
                   placeholder="Пароль"
-                  onChange={(e) =>
+                  value={
+                    password
+                  }
+                  onChange={(
+                    e
+                  ) =>
                     setPassword(
-                      e.target.value
+                      e
+                        .target
+                        .value
                     )
                   }
                   style={{
                     width:
                       "100%",
-                    padding: 18,
+                    padding:
+                      "18px",
                     borderRadius:
                       18,
                     border:
@@ -374,7 +406,7 @@ export default function Login() {
                 </button>
               </div>
 
-              {/* LOGIN BTN */}
+              {/* BUTTON */}
               <motion.button
                 whileHover={{
                   scale: 1.02,
@@ -382,14 +414,14 @@ export default function Login() {
                 whileTap={{
                   scale: 0.98,
                 }}
-                onClick={
-                  handleLogin
-                }
                 disabled={
                   loading
                 }
+                onClick={
+                  handleRegister
+                }
                 style={{
-                  marginTop: 6,
+                  marginTop: 8,
                   padding:
                     "18px 20px",
                   borderRadius:
@@ -416,8 +448,8 @@ export default function Login() {
                 }}
               >
                 {loading
-                  ? "Вход..."
-                  : "Войти"}
+                  ? "Создание..."
+                  : "Создать аккаунт"}
 
                 {!loading && (
                   <ArrowRight
@@ -426,67 +458,23 @@ export default function Login() {
                 )}
               </motion.button>
 
-              {/* GOOGLE */}
-              <button
-                onClick={
-                  handleGoogle
-                }
+              {/* LOGIN */}
+              <p
                 style={{
-                  padding:
-                    "16px 20px",
-                  borderRadius:
-                    18,
-                  border:
-                    "1px solid rgba(255,255,255,.08)",
-                  background:
-                    "rgba(255,255,255,.03)",
-                  color:
-                    "rgba(255,255,255,.85)",
-                  fontWeight: 600,
-                  fontSize: 15,
-                  display:
-                    "flex",
-                  alignItems:
+                  textAlign:
                     "center",
-                  justifyContent:
-                    "center",
-                  gap: 12,
-                  cursor:
-                    "pointer",
-                }}
-              >
-                <FcGoogle
-                  size={20}
-                />
-                Войти через
-                Google
-              </button>
-
-              {/* FOOTER */}
-              <div
-                style={{
-                  display: "flex",
-                  justifyContent:
-                    "space-between",
-                  marginTop: 4,
-                  fontSize: 14,
                   color:
                     "rgba(255,255,255,.4)",
+                  fontSize: 14,
+                  marginTop: 6,
                 }}
               >
-                <span
-                  style={{
-                    cursor:
-                      "pointer",
-                  }}
-                >
-                  Забыли пароль?
-                </span>
-
+                Уже есть
+                аккаунт?{" "}
                 <span
                   onClick={() =>
                     navigate(
-                      "/register"
+                      "/login"
                     )
                   }
                   style={{
@@ -497,9 +485,9 @@ export default function Login() {
                     fontWeight: 600,
                   }}
                 >
-                  Регистрация
+                  Войти
                 </span>
-              </div>
+              </p>
             </div>
           </div>
         </div>
