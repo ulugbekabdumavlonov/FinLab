@@ -1,10 +1,13 @@
 import { useState } from "react";
+
 import {
-  createUserWithEmailAndPassword,
-  updateProfile,
+  signInWithEmailAndPassword,
+  signInWithPopup,
+  GoogleAuthProvider,
 } from "firebase/auth";
 
 import { auth } from "../firebase";
+
 import { useNavigate } from "react-router-dom";
 
 import { motion } from "framer-motion";
@@ -15,11 +18,14 @@ import {
   ArrowRight,
 } from "lucide-react";
 
-export default function Register() {
-  const navigate = useNavigate();
+import { FcGoogle } from "react-icons/fc";
 
-  const [name, setName] =
-    useState("");
+export default function Login() {
+  const navigate =
+    useNavigate();
+
+  const provider =
+    new GoogleAuthProvider();
 
   const [email, setEmail] =
     useState("");
@@ -33,40 +39,41 @@ export default function Register() {
   const [loading, setLoading] =
     useState(false);
 
-  const handleRegister =
+  const handleLogin =
     async () => {
-      if (
-        !name ||
-        !email ||
-        !password
-      ) {
+      if (!email || !password)
         return alert(
           "Заполните поля"
         );
-      }
 
       try {
         setLoading(true);
 
-        const user =
-          await createUserWithEmailAndPassword(
-            auth,
-            email,
-            password
-          );
-
-        await updateProfile(
-          user.user,
-          {
-            displayName: name,
-          }
+        await signInWithEmailAndPassword(
+          auth,
+          email,
+          password
         );
 
-        navigate("/onboarding");
+        navigate("/app");
       } catch (err) {
         alert(err.message);
       } finally {
         setLoading(false);
+      }
+    };
+
+  const handleGoogle =
+    async () => {
+      try {
+        await signInWithPopup(
+          auth,
+          provider
+        );
+
+        navigate("/app");
+      } catch (err) {
+        alert(err.message);
       }
     };
 
@@ -82,8 +89,8 @@ export default function Register() {
           "center",
         padding:
           "40px 20px",
-        position: "relative",
         overflow: "hidden",
+        position: "relative",
       }}
     >
       {/* GLOW */}
@@ -91,12 +98,12 @@ export default function Register() {
         style={{
           position: "absolute",
           top: -150,
-          left: -150,
-          width: 350,
-          height: 350,
+          right: -120,
+          width: 320,
+          height: 320,
           borderRadius: "50%",
           background:
-            "rgba(99,102,241,.2)",
+            "rgba(99,102,241,.18)",
           filter: "blur(120px)",
         }}
       />
@@ -115,7 +122,7 @@ export default function Register() {
         }}
         style={{
           width: "100%",
-          maxWidth: 1050,
+          maxWidth: 1000,
           display: "grid",
           gridTemplateColumns:
             "repeat(auto-fit,minmax(320px,1fr))",
@@ -179,24 +186,24 @@ export default function Register() {
                 marginBottom: 26,
               }}
             >
-              FINLAB AI
+              FINLAB
             </div>
 
             <h1
               style={{
                 fontSize:
-                  "clamp(42px,6vw,70px)",
+                  "clamp(42px,6vw,68px)",
                 lineHeight: 0.95,
                 fontWeight: 900,
                 letterSpacing:
                   "-.06em",
                 color: "#fff",
-                marginBottom: 22,
+                marginBottom: 20,
               }}
             >
-              Финансы
+              Добро
               <br />
-              без хаоса
+              пожаловать
             </h1>
 
             <p
@@ -204,14 +211,16 @@ export default function Register() {
                 color:
                   "rgba(255,255,255,.45)",
                 lineHeight: 1.8,
-                maxWidth: 420,
+                maxWidth: 400,
                 fontSize: 16,
               }}
             >
-              ДДС, P&L,
-              бюджеты и
-              аналитика в
-              одной системе.
+              Управляйте
+              финансами,
+              cashflow и
+              аналитикой
+              бизнеса в
+              одном месте.
             </p>
           </div>
         </div>
@@ -246,7 +255,7 @@ export default function Register() {
                   "-.05em",
               }}
             >
-              Регистрация
+              Вход
             </h2>
 
             <p
@@ -254,12 +263,10 @@ export default function Register() {
                 color:
                   "rgba(255,255,255,.4)",
                 marginBottom: 32,
-                lineHeight: 1.7,
               }}
             >
-              Создай аккаунт
-              и начни
-              бесплатно
+              Введите данные
+              аккаунта
             </p>
 
             {/* INPUTS */}
@@ -271,56 +278,25 @@ export default function Register() {
                 gap: 16,
               }}
             >
-              {[{
-                value: name,
-                set: setName,
-                placeholder:
-                  "Имя",
-              },{
-                value: email,
-                set: setEmail,
-                placeholder:
-                  "Email",
-              }].map(
-                (
-                  item,
-                  i
-                ) => (
-                  <input
-                    key={i}
-                    value={
-                      item.value
-                    }
-                    placeholder={
-                      item.placeholder
-                    }
-                    onChange={(
-                      e
-                    ) =>
-                      item.set(
-                        e
-                          .target
-                          .value
-                      )
-                    }
-                    style={{
-                      padding:
-                        "18px",
-                      borderRadius:
-                        18,
-                      border:
-                        "1px solid rgba(255,255,255,.08)",
-                      background:
-                        "rgba(255,255,255,.04)",
-                      color:
-                        "#fff",
-                      outline:
-                        "none",
-                      fontSize: 15,
-                    }}
-                  />
-                )
-              )}
+              <input
+                placeholder="Email"
+                onChange={(e) =>
+                  setEmail(
+                    e.target.value
+                  )
+                }
+                style={{
+                  padding: 18,
+                  borderRadius: 18,
+                  border:
+                    "1px solid rgba(255,255,255,.08)",
+                  background:
+                    "rgba(255,255,255,.04)",
+                  color: "#fff",
+                  outline: "none",
+                  fontSize: 15,
+                }}
+              />
 
               {/* PASSWORD */}
               <div
@@ -336,23 +312,15 @@ export default function Register() {
                       : "password"
                   }
                   placeholder="Пароль"
-                  value={
-                    password
-                  }
-                  onChange={(
-                    e
-                  ) =>
+                  onChange={(e) =>
                     setPassword(
-                      e
-                        .target
-                        .value
+                      e.target.value
                     )
                   }
                   style={{
                     width:
                       "100%",
-                    padding:
-                      "18px",
+                    padding: 18,
                     borderRadius:
                       18,
                     border:
@@ -406,7 +374,7 @@ export default function Register() {
                 </button>
               </div>
 
-              {/* BUTTON */}
+              {/* LOGIN BTN */}
               <motion.button
                 whileHover={{
                   scale: 1.02,
@@ -414,14 +382,14 @@ export default function Register() {
                 whileTap={{
                   scale: 0.98,
                 }}
+                onClick={
+                  handleLogin
+                }
                 disabled={
                   loading
                 }
-                onClick={
-                  handleRegister
-                }
                 style={{
-                  marginTop: 8,
+                  marginTop: 6,
                   padding:
                     "18px 20px",
                   borderRadius:
@@ -448,8 +416,8 @@ export default function Register() {
                 }}
               >
                 {loading
-                  ? "Создание..."
-                  : "Создать аккаунт"}
+                  ? "Вход..."
+                  : "Войти"}
 
                 {!loading && (
                   <ArrowRight
@@ -458,23 +426,67 @@ export default function Register() {
                 )}
               </motion.button>
 
-              {/* LOGIN */}
-              <p
+              {/* GOOGLE */}
+              <button
+                onClick={
+                  handleGoogle
+                }
                 style={{
-                  textAlign:
-                    "center",
+                  padding:
+                    "16px 20px",
+                  borderRadius:
+                    18,
+                  border:
+                    "1px solid rgba(255,255,255,.08)",
+                  background:
+                    "rgba(255,255,255,.03)",
                   color:
-                    "rgba(255,255,255,.4)",
-                  fontSize: 14,
-                  marginTop: 6,
+                    "rgba(255,255,255,.85)",
+                  fontWeight: 600,
+                  fontSize: 15,
+                  display:
+                    "flex",
+                  alignItems:
+                    "center",
+                  justifyContent:
+                    "center",
+                  gap: 12,
+                  cursor:
+                    "pointer",
                 }}
               >
-                Уже есть
-                аккаунт?{" "}
+                <FcGoogle
+                  size={20}
+                />
+                Войти через
+                Google
+              </button>
+
+              {/* FOOTER */}
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent:
+                    "space-between",
+                  marginTop: 4,
+                  fontSize: 14,
+                  color:
+                    "rgba(255,255,255,.4)",
+                }}
+              >
+                <span
+                  style={{
+                    cursor:
+                      "pointer",
+                  }}
+                >
+                  Забыли пароль?
+                </span>
+
                 <span
                   onClick={() =>
                     navigate(
-                      "/login"
+                      "/register"
                     )
                   }
                   style={{
@@ -485,9 +497,9 @@ export default function Register() {
                     fontWeight: 600,
                   }}
                 >
-                  Войти
+                  Регистрация
                 </span>
-              </p>
+              </div>
             </div>
           </div>
         </div>
