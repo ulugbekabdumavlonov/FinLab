@@ -32,9 +32,24 @@ export default function Footer() {
         overflow: "hidden",
         background:
           "radial-gradient(circle at top, rgba(99,102,241,0.15), transparent 35%), #080b14",
-        borderTop: "1px solid rgba(255,255,255,0.06)",
+        borderTop: "none", // убрали резкую линию — заменяем плавным переходом
       }}
     >
+      {/* ─── ПЛАВНЫЙ ПЕРЕХОД СВЕРХУ ─── */}
+      <div
+        style={{
+          position: "absolute",
+          top: 0,
+          left: 0,
+          right: 0,
+          height: 200,
+          background:
+            "linear-gradient(to bottom, #080b14 0%, transparent 100%)",
+          zIndex: 3,
+          pointerEvents: "none",
+        }}
+      />
+
       {/* Background glow */}
       <div
         style={{
@@ -136,10 +151,7 @@ export default function Footer() {
           </div>
 
           <motion.button
-            whileHover={{
-              scale: 1.04,
-              y: -2,
-            }}
+            whileHover={{ scale: 1.04, y: -2 }}
             whileTap={{ scale: 0.98 }}
             style={{
               border: "none",
@@ -163,8 +175,7 @@ export default function Footer() {
         <div
           style={{
             display: "grid",
-            gridTemplateColumns:
-              "repeat(auto-fit, minmax(220px, 1fr))",
+            gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
             gap: 20,
             marginBottom: 50,
           }}
@@ -196,16 +207,14 @@ export default function Footer() {
                   width: 42,
                   height: 42,
                   borderRadius: 14,
-                  background:
-                    "linear-gradient(135deg,#6366f1,#8b5cf6)",
+                  background: "linear-gradient(135deg,#6366f1,#8b5cf6)",
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
                   fontWeight: 800,
                   color: "#fff",
                   fontSize: 16,
-                  boxShadow:
-                    "0 10px 30px rgba(99,102,241,0.35)",
+                  boxShadow: "0 10px 30px rgba(99,102,241,0.35)",
                 }}
               >
                 F
@@ -247,74 +256,66 @@ export default function Footer() {
           </motion.div>
 
           {/* Footer columns */}
-          {Object.entries(FOOTER_LINKS).map(
-            ([title, items], index) => (
-              <motion.div
-                key={title}
-                initial={{ opacity: 0, y: 24 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{
-                  duration: 0.5,
-                  delay: index * 0.08,
-                }}
+          {Object.entries(FOOTER_LINKS).map(([title, items], index) => (
+            <motion.div
+              key={title}
+              initial={{ opacity: 0, y: 24 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.5, delay: index * 0.08 }}
+              style={{
+                background: "rgba(255,255,255,0.03)",
+                border: "1px solid rgba(255,255,255,0.07)",
+                borderRadius: 24,
+                padding: 24,
+                backdropFilter: "blur(20px)",
+              }}
+            >
+              <h3
                 style={{
-                  background: "rgba(255,255,255,0.03)",
-                  border:
-                    "1px solid rgba(255,255,255,0.07)",
-                  borderRadius: 24,
-                  padding: 24,
-                  backdropFilter: "blur(20px)",
+                  color: "#fff",
+                  fontSize: 15,
+                  fontWeight: 700,
+                  marginBottom: 18,
+                  letterSpacing: "-0.02em",
                 }}
               >
-                <h3
-                  style={{
-                    color: "#fff",
-                    fontSize: 15,
-                    fontWeight: 700,
-                    marginBottom: 18,
-                    letterSpacing: "-0.02em",
-                  }}
-                >
-                  {title}
-                </h3>
+                {title}
+              </h3>
 
-                <ul
-                  style={{
-                    display: "flex",
-                    flexDirection: "column",
-                    gap: 14,
-                    listStyle: "none",
-                    padding: 0,
-                    margin: 0,
-                  }}
-                >
-                  {items.map((item) => (
-                    <motion.li
-                      key={item}
-                      whileHover={{ x: 4 }}
-                      style={{
-                        color: "rgba(255,255,255,0.38)",
-                        fontSize: 14,
-                        cursor: "pointer",
-                        transition: "0.2s",
-                      }}
-                      onMouseEnter={(e) => {
-                        e.currentTarget.style.color =
-                          "rgba(255,255,255,0.72)";
-                      }}
-                      onMouseLeave={(e) => {
-                        e.currentTarget.style.color =
-                          "rgba(255,255,255,0.38)";
-                      }}
-                    >
-                      {item}
-                    </motion.li>
-                  ))}
-                </ul>
-              </motion.div>
-            )
-          )}
+              <ul
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 14,
+                  listStyle: "none",
+                  padding: 0,
+                  margin: 0,
+                }}
+              >
+                {items.map((item) => (
+                  <motion.li
+                    key={item}
+                    whileHover={{ x: 4 }}
+                    style={{
+                      color: "rgba(255,255,255,0.38)",
+                      fontSize: 14,
+                      cursor: "pointer",
+                      transition: "0.2s",
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.color = "rgba(255,255,255,0.72)";
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.color = "rgba(255,255,255,0.38)";
+                    }}
+                  >
+                    {item}
+                  </motion.li>
+                ))}
+              </ul>
+            </motion.div>
+          ))}
         </div>
 
         {/* Bottom bar */}
@@ -342,38 +343,28 @@ export default function Footer() {
             © 2026 FinLab. All rights reserved.
           </div>
 
-          <div
-            style={{
-              display: "flex",
-              gap: 20,
-              flexWrap: "wrap",
-            }}
-          >
-            {[
-              "Privacy Policy",
-              "Terms of Service",
-              "support@finlab.ai",
-            ].map((item) => (
-              <motion.div
-                key={item}
-                whileHover={{ y: -1 }}
-                style={{
-                  color: "rgba(255,255,255,0.32)",
-                  fontSize: 13,
-                  cursor: "pointer",
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.color =
-                    "rgba(255,255,255,0.68)";
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.color =
-                    "rgba(255,255,255,0.32)";
-                }}
-              >
-                {item}
-              </motion.div>
-            ))}
+          <div style={{ display: "flex", gap: 20, flexWrap: "wrap" }}>
+            {["Privacy Policy", "Terms of Service", "support@finlab.ai"].map(
+              (item) => (
+                <motion.div
+                  key={item}
+                  whileHover={{ y: -1 }}
+                  style={{
+                    color: "rgba(255,255,255,0.32)",
+                    fontSize: 13,
+                    cursor: "pointer",
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.color = "rgba(255,255,255,0.68)";
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.color = "rgba(255,255,255,0.32)";
+                  }}
+                >
+                  {item}
+                </motion.div>
+              )
+            )}
           </div>
         </motion.div>
       </div>
