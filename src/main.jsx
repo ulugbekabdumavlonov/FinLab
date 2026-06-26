@@ -4,7 +4,6 @@ import App from "./App.jsx";
 import "./index.css";
 import { AuthProvider } from "./Context/AuthContext";
 import { DataProvider } from "./Context/DataContext";
-import { WarehouseProvider } from "./Pages/Warehouse/context/warehouseContext.jsx";
 import { ThemeProvider } from "./Context/ThemeContext";
 import { LanguageProvider } from "./Context/LanguageContext";
 
@@ -14,9 +13,7 @@ ReactDOM.createRoot(document.getElementById("root")).render(
       <LanguageProvider>
         <AuthProvider>
           <DataProvider>
-            <WarehouseProvider>
               <App />
-            </WarehouseProvider>
           </DataProvider>
         </AuthProvider>
       </LanguageProvider>
