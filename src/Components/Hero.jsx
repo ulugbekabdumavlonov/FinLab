@@ -1,19 +1,47 @@
+// src/Pages/Landing/sections/Hero.jsx
 import { useEffect, useState, useRef } from "react";
 import { motion, useScroll, useTransform, AnimatePresence } from "framer-motion";
 import { Link } from "react-router-dom";
+import { 
+  TrendingUp, Users, CheckSquare, MessageSquare, Package, 
+  LayoutDashboard, Sparkles, Zap, Rocket
+} from "lucide-react";
+import { useTheme } from "../Context/ThemeContext";
+import { useLanguage } from "../Context/LanguageContext";
 
 const METRICS = [
-  { label: "ДДС", value: "+$12 430", sub: "Чистый поток", color: "#4ade80", accent: "#22c55e" },
-  { label: "P&L", value: "+$24 200", sub: "Прибыль / мес", color: "#818cf8", accent: "#6366f1" },
-  { label: "Баланс", value: "$84 320", sub: "Чистые активы", color: "#fb923c", accent: "#f97316" },
-  { label: "Выручка", value: "$142 800", sub: "Текущий квартал", color: "#facc15", accent: "#eab308" },
+  { key: "cashflow", value: "+$12,430", color: "#4ade80", accent: "#22c55e" },
+  { key: "profit", value: "+$24,200", color: "#818cf8", accent: "#6366f1" },
+  { key: "balance", value: "$84,320", color: "#fb923c", accent: "#f97316" },
+  { key: "tasks", value: "24", color: "#facc15", accent: "#eab308" },
 ];
 
 const ROTATORS = [
-  { tag: "Движение денег", h: "Видь куда уходит каждый рубль", hl: "в реальном времени", color: "#818cf8" },
-  { tag: "Автоматизация", h: "Забудь про Excel и ручной ввод", hl: "навсегда", color: "#4ade80" },
-  { tag: "P&L", h: "Прибыль и убытки обновляются", hl: "без бухгалтера", color: "#fb923c" },
-  { tag: "AI-аналитика", h: "Искусственный интеллект находит", hl: "скрытые потери", color: "#facc15" },
+  { 
+    key: "finance",
+    color: "#818cf8",
+    icon: <TrendingUp size={20} />
+  },
+  { 
+    key: "hr",
+    color: "#4ade80",
+    icon: <Users size={20} />
+  },
+  { 
+    key: "tasks_module",
+    color: "#fb923c",
+    icon: <CheckSquare size={20} />
+  },
+  { 
+    key: "warehouse",
+    color: "#facc15",
+    icon: <Package size={20} />
+  },
+  { 
+    key: "communication",
+    color: "#f472b6",
+    icon: <MessageSquare size={20} />
+  },
 ];
 
 function MiniSparkline({ color }) {
@@ -36,17 +64,17 @@ function MiniSparkline({ color }) {
   );
 }
 
-function MetricCard({ m, index }) {
-  const [animated, setAnimated] = useState(false);
-  useEffect(() => { setTimeout(() => setAnimated(true), 600 + index * 150); }, []);
+function MetricCard({ m, index, theme, t }) {
+  const isDark = theme === 'dark';
+  
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: 0.4 + index * 0.12, duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
       style={{
-        background: "rgba(255,255,255,0.04)",
-        border: "1px solid rgba(255,255,255,0.08)",
+        background: isDark ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.03)",
+        border: `1px solid ${isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)'}`,
         borderRadius: 16,
         padding: "14px 16px",
         backdropFilter: "blur(12px)",
@@ -60,91 +88,244 @@ function MetricCard({ m, index }) {
         pointerEvents: "none"
       }} />
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 6 }}>
-        <span style={{ fontSize: 11, color: "rgba(255,255,255,0.4)", textTransform: "uppercase", letterSpacing: "0.08em" }}>{m.label}</span>
+        <span style={{ 
+          fontSize: 11, 
+          color: isDark ? "rgba(255,255,255,0.4)" : "rgba(0,0,0,0.4)", 
+          textTransform: "uppercase", 
+          letterSpacing: "0.08em" 
+        }}>{t(`metrics.${m.key}.label`)}</span>
         <span style={{
           fontSize: 10, fontWeight: 600, color: m.color,
           background: `${m.accent}20`, borderRadius: 20, padding: "2px 8px"
         }}>↑ LIVE</span>
       </div>
-      <div style={{ fontSize: 22, fontWeight: 700, color: m.color, letterSpacing: "-0.03em", marginBottom: 2 }}>
+      <div style={{ 
+        fontSize: 22, 
+        fontWeight: 700, 
+        color: m.color, 
+        letterSpacing: "-0.03em", 
+        marginBottom: 2 
+      }}>
         {m.value}
       </div>
-      <div style={{ fontSize: 11, color: "rgba(255,255,255,0.35)", marginBottom: 10 }}>{m.sub}</div>
+      <div style={{ 
+        fontSize: 11, 
+        color: isDark ? "rgba(255,255,255,0.35)" : "rgba(0,0,0,0.35)", 
+        marginBottom: 10 
+      }}>{t(`metrics.${m.key}.sub`)}</div>
       <MiniSparkline color={m.color} />
     </motion.div>
   );
 }
 
-function AnimatedCounter({ value }) {
-  const [display, setDisplay] = useState("0");
-  useEffect(() => {
-    const num = parseInt(value.replace(/\D/g, ""));
-    let start = 0;
-    const step = num / 40;
-    const timer = setInterval(() => {
-      start += step;
-      if (start >= num) { setDisplay(value); clearInterval(timer); }
-      else setDisplay("+" + Math.floor(start).toLocaleString("ru"));
-    }, 30);
-    return () => clearInterval(timer);
-  }, [value]);
-  return <>{display}</>;
-}
-
 export default function Hero() {
+  const { theme } = useTheme();
+  const { t } = useLanguage();
+  const isDark = theme === 'dark';
   const { scrollY } = useScroll();
   const yBg = useTransform(scrollY, [0, 600], [0, -80]);
   const [idx, setIdx] = useState(0);
-  const [phase, setPhase] = useState("in");
+  const [isTransitioning, setIsTransitioning] = useState(false);
+  const [stars, setStars] = useState([]);
+
+  // ─── ГЕНЕРАЦИЯ ЗВЁЗД ───
+  useEffect(() => {
+    const generatedStars = [];
+    for (let i = 0; i < 200; i++) {
+      generatedStars.push({
+        id: i,
+        x: Math.random() * 100,
+        y: Math.random() * 100,
+        size: Math.random() * 2 + 0.5,
+        opacity: Math.random() * 0.5 + 0.1,
+        duration: Math.random() * 3 + 2,
+        delay: Math.random() * 5,
+      });
+    }
+    setStars(generatedStars);
+  }, []);
 
   useEffect(() => {
     const id = setInterval(() => {
-      setPhase("out");
-      setTimeout(() => { setIdx(i => (i + 1) % ROTATORS.length); setPhase("in"); }, 350);
-    }, 4500);
+      setIsTransitioning(true);
+      setTimeout(() => {
+        setIdx(i => (i + 1) % ROTATORS.length);
+        setTimeout(() => {
+          setIsTransitioning(false);
+        }, 100);
+      }, 400);
+    }, 5000);
     return () => clearInterval(id);
   }, []);
 
   const cur = ROTATORS[idx];
+  const curTag = t(`hero.rotators.${cur.key}.tag`);
+  const curTitle = t(`hero.rotators.${cur.key}.title`);
+  const curHighlight = t(`hero.rotators.${cur.key}.highlight`);
 
   return (
     <div style={{
       minHeight: "100vh",
-      background: "#080b14",
+      background: isDark ? "#06080f" : "#f0f2f5",
       position: "relative",
       overflow: "hidden",
       display: "flex",
       flexDirection: "column",
+      transition: "background 0.3s ease",
     }}>
-      {/* Animated mesh bg */}
-      <motion.div style={{ position: "absolute", inset: 0, y: yBg, pointerEvents: "none" }}>
-        <div style={{
-          position: "absolute", top: "-10%", left: "30%", width: 700, height: 700,
-          background: "radial-gradient(ellipse, rgba(99,102,241,0.18) 0%, transparent 65%)",
-          filter: "blur(40px)"
-        }} />
-        <div style={{
-          position: "absolute", bottom: "5%", right: "-5%", width: 500, height: 500,
-          background: "radial-gradient(ellipse, rgba(74,222,128,0.12) 0%, transparent 65%)",
-          filter: "blur(60px)"
-        }} />
-        <div style={{
-          position: "absolute", top: "20%", left: "-10%", width: 400, height: 400,
-          background: "radial-gradient(ellipse, rgba(249,115,22,0.1) 0%, transparent 65%)",
-          filter: "blur(50px)"
-        }} />
-        {/* Grid lines */}
-        <svg style={{ position: "absolute", inset: 0, width: "100%", height: "100%", opacity: 0.04 }}>
-          <defs>
-            <pattern id="grid" width="60" height="60" patternUnits="userSpaceOnUse">
-              <path d="M 60 0 L 0 0 0 60" fill="none" stroke="white" strokeWidth="0.5" />
-            </pattern>
-          </defs>
-          <rect width="100%" height="100%" fill="url(#grid)" />
-        </svg>
-      </motion.div>
+      <style>{`
+        @keyframes pulseGlow {
+          0%, 100% { opacity: 0.3; transform: scale(1); }
+          50% { opacity: 0.8; transform: scale(1.1); }
+        }
+        @keyframes floatRotate {
+          0%, 100% { transform: translateY(0px) rotate(0deg); }
+          50% { transform: translateY(-20px) rotate(5deg); }
+        }
+        @keyframes twinkle {
+          0%, 100% { opacity: 0.2; transform: scale(0.8); }
+          50% { opacity: 0.8; transform: scale(1.2); }
+        }
+        @keyframes gradientMove {
+          0%, 100% { background-position: 0% 50%; }
+          50% { background-position: 100% 50%; }
+        }
+        .pulse-glow {
+          animation: pulseGlow 4s ease-in-out infinite;
+        }
+        .float-rotate {
+          animation: floatRotate 8s ease-in-out infinite;
+        }
+        .twinkle {
+          animation: twinkle 3s ease-in-out infinite;
+        }
+        ::-webkit-scrollbar { width: 4px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: rgba(99,102,241,0.3); border-radius: 99px; }
+      `}</style>
 
-      {/* Content */}
+      {/* ─── ФОН СО ЗВЁЗДАМИ ─── */}
+      {isDark && (
+        <motion.div style={{ position: "absolute", inset: 0, y: yBg, pointerEvents: "none" }}>
+          {/* Звёзды */}
+          {stars.map((star) => (
+            <motion.div
+              key={star.id}
+              className="twinkle"
+              style={{
+                position: "absolute",
+                left: `${star.x}%`,
+                top: `${star.y}%`,
+                width: star.size,
+                height: star.size,
+                borderRadius: "50%",
+                background: "#fff",
+                opacity: star.opacity,
+                boxShadow: `0 0 ${star.size * 2}px rgba(255,255,255,0.1)`,
+                animationDelay: `${star.delay}s`,
+                animationDuration: `${star.duration}s`,
+              }}
+            />
+          ))}
+
+          {/* Градиентные свечения */}
+          <div style={{
+            position: "absolute", top: "-15%", left: "20%", width: 800, height: 800,
+            background: "radial-gradient(ellipse, rgba(99,102,241,0.12) 0%, transparent 65%)",
+            filter: "blur(60px)"
+          }} />
+          <div style={{
+            position: "absolute", bottom: "-10%", right: "20%", width: 600, height: 600,
+            background: "radial-gradient(ellipse, rgba(74,222,128,0.08) 0%, transparent 65%)",
+            filter: "blur(80px)"
+          }} />
+          <div style={{
+            position: "absolute", top: "40%", left: "-10%", width: 500, height: 500,
+            background: "radial-gradient(ellipse, rgba(139,92,246,0.06) 0%, transparent 65%)",
+            filter: "blur(70px)"
+          }} />
+
+          {/* Тонкая сетка */}
+          <div style={{
+            position: "absolute", inset: 0,
+            backgroundImage: `
+              linear-gradient(rgba(255,255,255,0.02) 1px, transparent 1px),
+              linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px)
+            `,
+            backgroundSize: "60px 60px, 60px 60px",
+            opacity: 0.3,
+          }} />
+        </motion.div>
+      )}
+
+      {/* ─── ОРБИТАЛЬНЫЕ КОЛЬЦА ─── */}
+      {isDark && (
+        <>
+          <motion.div
+            animate={{ rotate: 360 }}
+            transition={{ duration: 80, repeat: Infinity, ease: "linear" }}
+            style={{
+              position: "absolute",
+              top: "50%",
+              left: "50%",
+              width: 600,
+              height: 600,
+              transform: "translate(-50%, -50%)",
+              borderRadius: "50%",
+              border: "1px solid rgba(99,102,241,0.03)",
+              pointerEvents: "none",
+            }}
+          >
+            <motion.div
+              animate={{ rotate: -360 }}
+              transition={{ duration: 50, repeat: Infinity, ease: "linear" }}
+              style={{
+                position: "absolute",
+                top: -3,
+                left: "50%",
+                width: 4,
+                height: 4,
+                borderRadius: "50%",
+                background: "#6366f1",
+                boxShadow: "0 0 25px rgba(99,102,241,0.6)",
+              }}
+            />
+          </motion.div>
+
+          <motion.div
+            animate={{ rotate: -360 }}
+            transition={{ duration: 100, repeat: Infinity, ease: "linear" }}
+            style={{
+              position: "absolute",
+              top: "50%",
+              left: "50%",
+              width: 400,
+              height: 400,
+              transform: "translate(-50%, -50%)",
+              borderRadius: "50%",
+              border: "1px solid rgba(139,92,246,0.02)",
+              pointerEvents: "none",
+            }}
+          >
+            <motion.div
+              animate={{ rotate: 360 }}
+              transition={{ duration: 60, repeat: Infinity, ease: "linear" }}
+              style={{
+                position: "absolute",
+                bottom: -3,
+                left: "50%",
+                width: 3,
+                height: 3,
+                borderRadius: "50%",
+                background: "#8b5cf6",
+                boxShadow: "0 0 15px rgba(139,92,246,0.4)",
+              }}
+            />
+          </motion.div>
+        </>
+      )}
+
+      {/* ─── КОНТЕНТ ─── */}
       <div style={{
         position: "relative", zIndex: 10,
         display: "flex", flexDirection: "row", flexWrap: "wrap",
@@ -152,170 +333,386 @@ export default function Hero() {
         minHeight: "100vh", padding: "100px 48px 60px", gap: 60, maxWidth: 1280, margin: "0 auto", width: "100%"
       }}>
 
-        {/* LEFT */}
-        <div style={{ flex: "1 1 480px", maxWidth: 560 }}>
+        {/* LEFT - расширенный */}
+        <div style={{ flex: "1 1 540px", maxWidth: 640 }}>
           {/* Live badge */}
           <motion.div
-            initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6 }}
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6 }}
             style={{
               display: "inline-flex", alignItems: "center", gap: 8,
-              background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.12)",
-              borderRadius: 100, padding: "6px 14px", marginBottom: 24, backdropFilter: "blur(10px)"
+              background: isDark ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.03)",
+              border: `1px solid ${isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)'}`,
+              borderRadius: 100,
+              padding: "6px 14px",
+              marginBottom: 24,
+              backdropFilter: "blur(10px)",
             }}
           >
-            <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#4ade80", boxShadow: "0 0 8px #4ade80", display: "block" }} />
-            <span style={{ fontSize: 12, color: "rgba(255,255,255,0.6)", fontWeight: 500 }}>Финансы в реальном времени</span>
+            <motion.span
+              animate={{ scale: [1, 1.5, 1], opacity: [0.7, 1, 0.7] }}
+              transition={{ duration: 1.5, repeat: Infinity }}
+              style={{
+                width: 5,
+                height: 5,
+                borderRadius: "50%",
+                background: "#4ade80",
+                boxShadow: "0 0 15px rgba(74,222,128,0.3)",
+                display: "block",
+              }}
+            />
+            <span style={{ 
+              fontSize: 12, 
+              color: isDark ? "rgba(255,255,255,0.5)" : "rgba(0,0,0,0.5)", 
+              fontWeight: 500 
+            }}>
+              {t("hero.badge")}
+            </span>
           </motion.div>
 
           {/* Rotator tag */}
-          <AnimatePresence mode="wait">
-            <motion.span
-              key={`tag-${idx}`}
-              initial={{ opacity: 0 }} animate={{ opacity: phase === "in" ? 1 : 0 }} exit={{ opacity: 0 }}
-              style={{
-                display: "inline-block", fontSize: 12, fontWeight: 600,
-                color: cur.color, background: `${cur.color}18`,
-                borderRadius: 6, padding: "3px 10px", marginBottom: 12, letterSpacing: "0.04em"
-              }}
-            >
-              {cur.tag}
-            </motion.span>
-          </AnimatePresence>
+          <div style={{ marginBottom: 20, height: 32 }}>
+            <AnimatePresence mode="wait">
+              <motion.span
+                key={`tag-${idx}`}
+                initial={{ opacity: 0, y: -10, scale: 0.9 }}
+                animate={{ 
+                  opacity: 1, 
+                  y: 0, 
+                  scale: 1,
+                  transition: { 
+                    duration: 0.5,
+                    ease: [0.22, 1, 0.36, 1],
+                  }
+                }}
+                exit={{ 
+                  opacity: 0, 
+                  y: 10, 
+                  scale: 0.9,
+                  transition: { 
+                    duration: 0.3,
+                    ease: [0.22, 1, 0.36, 1],
+                  }
+                }}
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 8,
+                  fontSize: 13,
+                  fontWeight: 600,
+                  color: cur.color,
+                  background: `${cur.color}12`,
+                  borderRadius: 8,
+                  padding: "6px 16px",
+                  border: `1px solid ${cur.color}20`,
+                  backdropFilter: "blur(10px)",
+                }}
+              >
+                {cur.icon}
+                {curTag}
+              </motion.span>
+            </AnimatePresence>
+          </div>
 
-          {/* Headline */}
-          <AnimatePresence mode="wait">
-            <motion.h1
-              key={`h-${idx}`}
-              initial={{ opacity: 0, y: 16 }}
-              animate={{ opacity: phase === "in" ? 1 : 0, y: phase === "in" ? 0 : -8 }}
-              transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
-              style={{
-                fontSize: "clamp(32px, 4vw, 54px)", fontWeight: 800, lineHeight: 1.08,
-                color: "#fff", marginBottom: 8, letterSpacing: "-0.03em"
-              }}
-            >
-              {cur.h}{" "}
-              <span style={{ color: cur.color }}>{cur.hl}</span>
-            </motion.h1>
-          </AnimatePresence>
+          {/* Headline - супер плавная */}
+          <div style={{ position: "relative", minHeight: 120 }}>
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={`text-${idx}`}
+                initial={{ 
+                  opacity: 0, 
+                  y: 20,
+                  scale: 0.98,
+                  filter: "blur(4px)"
+                }}
+                animate={{ 
+                  opacity: 1, 
+                  y: 0,
+                  scale: 1,
+                  filter: "blur(0px)",
+                  transition: { 
+                    duration: 0.7,
+                    delay: 0.1,
+                    ease: [0.22, 1, 0.36, 1],
+                    opacity: { duration: 0.5, delay: 0.1 }
+                  }
+                }}
+                exit={{ 
+                  opacity: 0, 
+                  y: -20,
+                  scale: 0.98,
+                  filter: "blur(4px)",
+                  transition: { 
+                    duration: 0.4,
+                    ease: [0.22, 1, 0.36, 1],
+                  }
+                }}
+                style={{
+                  position: "absolute",
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                }}
+              >
+                <h1 style={{
+                  fontSize: "clamp(28px, 3.8vw, 44px)", 
+                  fontWeight: 800, 
+                  lineHeight: 1.15,
+                  color: isDark ? "#fff" : "#111827",
+                  letterSpacing: "-0.03em",
+                  textShadow: isDark ? "0 0 40px rgba(99,102,241,0.05)" : "none",
+                  margin: 0,
+                }}>
+                  {curTitle}
+                  <br />
+                  <span style={{ 
+                    color: cur.color,
+                    textShadow: isDark ? `0 0 30px ${cur.color}20, 0 0 60px ${cur.color}10` : "none",
+                  }}>
+                    {curHighlight}
+                  </span>
+                </h1>
+              </motion.div>
+            </AnimatePresence>
+          </div>
 
+          {/* Текст */}
           <motion.p
-            initial={{ opacity: 0 }} animate={{ opacity: 0.5 }} transition={{ delay: 0.5 }}
-            style={{ fontSize: 16, color: "rgba(255,255,255,0.55)", lineHeight: 1.7, marginBottom: 36, maxWidth: 440 }}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.5, duration: 0.6 }}
+            style={{ 
+              fontSize: 15, 
+              color: isDark ? "rgba(255,255,255,0.45)" : "rgba(0,0,0,0.5)", 
+              lineHeight: 1.7, 
+              marginTop: 50,
+              marginBottom: 36, 
+              maxWidth: 540,
+            }}
           >
-            Единственная платформа управленческого учёта, которая автоматизирует ДДС, P&L и Баланс — без бухгалтера, без задержек, без Excel.
+            {t("hero.subtitle")}
           </motion.p>
 
           {/* CTA buttons */}
           <motion.div
-            initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.6 }}
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.6, duration: 0.5 }}
             style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "center", marginBottom: 40 }}
           >
             <Link to="/register">
               <motion.button
-                whileHover={{ scale: 1.03, boxShadow: "0 0 40px rgba(99,102,241,0.5)" }}
+                whileHover={{ scale: 1.03, boxShadow: "0 0 50px rgba(99,102,241,0.4)" }}
                 whileTap={{ scale: 0.97 }}
                 style={{
                   display: "inline-flex", alignItems: "center", gap: 8,
-                  background: "linear-gradient(135deg, #6366f1 0%, #818cf8 100%)",
+                  background: "linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)",
                   color: "#fff", border: "none", borderRadius: 14,
                   padding: "14px 28px", fontSize: 15, fontWeight: 700, cursor: "pointer",
-                  boxShadow: "0 0 20px rgba(99,102,241,0.3)"
+                  boxShadow: "0 0 30px rgba(99,102,241,0.2)",
+                  position: "relative", overflow: "hidden",
                 }}
               >
-                Попробовать бесплатно
-                <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                  <path d="M3 8h10M8 3l5 5-5 5" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
+                <motion.div
+                  animate={{ x: ["-200%", "200%"] }}
+                  transition={{ duration: 2.5, repeat: Infinity, ease: "linear" }}
+                  style={{
+                    position: "absolute", inset: 0, width: 80,
+                    background: "linear-gradient(90deg, transparent, rgba(255,255,255,.2), transparent)",
+                    transform: "skewX(-25deg)",
+                  }}
+                />
+                <span style={{ position: "relative", zIndex: 2 }}>{t("hero.cta")}</span>
+                <Rocket size={16} style={{ position: "relative", zIndex: 2 }} />
               </motion.button>
             </Link>
             <Link to="/demo">
               <motion.button
-                whileHover={{ background: "rgba(255,255,255,0.08)" }}
+                whileHover={{ 
+                  background: isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.04)", 
+                  scale: 1.02 
+                }}
+                whileTap={{ scale: 0.97 }}
                 style={{
                   display: "inline-flex", alignItems: "center", gap: 8,
-                  background: "rgba(255,255,255,0.04)", color: "rgba(255,255,255,0.7)",
-                  border: "1px solid rgba(255,255,255,0.12)", borderRadius: 14,
-                  padding: "14px 24px", fontSize: 15, fontWeight: 600, cursor: "pointer"
+                  background: isDark ? "rgba(255,255,255,0.02)" : "rgba(0,0,0,0.02)",
+                  color: isDark ? "rgba(255,255,255,0.6)" : "rgba(0,0,0,0.6)",
+                  border: `1px solid ${isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)'}`,
+                  borderRadius: 14,
+                  padding: "14px 24px",
+                  fontSize: 15,
+                  fontWeight: 600,
+                  cursor: "pointer",
+                  backdropFilter: "blur(12px)",
+                  transition: "all 0.3s",
                 }}
               >
                 <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
                   <circle cx="8" cy="8" r="7" stroke="currentColor" strokeWidth="1.2" />
                   <path d="M6 5.5l5 2.5-5 2.5V5.5z" fill="currentColor" />
                 </svg>
-                Смотреть демо
+                {t("hero.demo")}
               </motion.button>
             </Link>
           </motion.div>
 
           {/* Stats row */}
           <motion.div
-            initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.8 }}
-            style={{ display: "flex", gap: 32, flexWrap: "wrap" }}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.8 }}
+            style={{ display: "flex", gap: 40, flexWrap: "wrap" }}
           >
-            {[["500+", "компаний"], ["50+", "отчётов"], ["14 дней", "бесплатно"]].map(([v, l]) => (
-              <div key={l}>
-                <div style={{ fontSize: 22, fontWeight: 800, color: "#fff", letterSpacing: "-0.03em" }}>{v}</div>
-                <div style={{ fontSize: 12, color: "rgba(255,255,255,0.4)" }}>{l}</div>
-              </div>
+            {[
+              { key: "allModules" },
+              { key: "reports" },
+              { key: "freeDays" },
+              { key: "support" }
+            ].map((item) => (
+              <motion.div
+                key={item.key}
+                whileHover={{ y: -2 }}
+                style={{ transition: "all 0.3s" }}
+              >
+                <div style={{ 
+                  fontSize: 20, 
+                  fontWeight: 600, 
+                  color: isDark ? "#fff" : "#111827", 
+                  letterSpacing: "-0.02em" 
+                }}>
+                  {t(`hero.stats.${item.key}.value`)}
+                </div>
+                <div style={{ 
+                  fontSize: 12, 
+                  color: isDark ? "rgba(255,255,255,0.35)" : "rgba(0,0,0,0.35)" 
+                }}>{t(`hero.stats.${item.key}.label`)}</div>
+              </motion.div>
             ))}
           </motion.div>
         </div>
 
-        {/* RIGHT — cards */}
-        <div style={{ flex: "1 1 360px", maxWidth: 440 }}>
-          {/* Main dashboard card */}
+        {/* RIGHT */}
+        <div style={{ flex: "1 1 340px", maxWidth: 420 }}>
           <motion.div
             initial={{ opacity: 0, scale: 0.94 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ delay: 0.3, duration: 0.8, ease: [0.22, 1, 0.36, 1] }}
             style={{
-              background: "rgba(255,255,255,0.04)",
-              border: "1px solid rgba(255,255,255,0.1)",
+              background: isDark ? "rgba(255,255,255,0.03)" : "rgba(255,255,255,0.8)",
+              border: `1px solid ${isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)'}`,
               borderRadius: 24,
               padding: 24,
               backdropFilter: "blur(20px)",
               marginBottom: 12,
+              position: "relative",
+              overflow: "hidden",
+              boxShadow: isDark 
+                ? "0 0 40px rgba(99,102,241,0.03)" 
+                : "0 0 40px rgba(0,0,0,0.03)",
             }}
           >
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
-              <span style={{ fontSize: 13, color: "rgba(255,255,255,0.5)", fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase" }}>Финансовый дашборд</span>
+            {isDark && (
+              <motion.div
+                animate={{ x: ["-100%", "100%"] }}
+                transition={{ duration: 4, repeat: Infinity, ease: "linear" }}
+                style={{
+                  position: "absolute",
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  height: 1,
+                  background: "linear-gradient(90deg, transparent, rgba(99,102,241,0.3), rgba(139,92,246,0.3), transparent)",
+                  filter: "blur(2px)",
+                }}
+              />
+            )}
+
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20, position: "relative", zIndex: 2 }}>
+              <span style={{ 
+                fontSize: 13, 
+                color: isDark ? "rgba(255,255,255,0.4)" : "rgba(0,0,0,0.4)", 
+                fontWeight: 600, 
+                letterSpacing: "0.06em", 
+                textTransform: "uppercase",
+                display: "flex",
+                alignItems: "center",
+                gap: 6,
+              }}>
+                <LayoutDashboard size={16} />
+                {t("hero.dashboardTitle")}
+              </span>
               <span style={{
-                fontSize: 11, color: "#4ade80", background: "rgba(74,222,128,0.12)",
-                borderRadius: 100, padding: "4px 12px", fontWeight: 600
-              }}>● LIVE</span>
+                fontSize: 11, color: "#4ade80", background: "rgba(74,222,128,0.10)",
+                borderRadius: 100, padding: "4px 12px", fontWeight: 600,
+                display: "flex", alignItems: "center", gap: 4,
+                border: "1px solid rgba(74,222,128,0.08)",
+              }}>
+                <span style={{ width: 3, height: 3, borderRadius: "50%", background: "#4ade80", boxShadow: "0 0 15px #4ade80", display: "block" }} />
+                LIVE
+              </span>
             </div>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-              {METRICS.map((m, i) => <MetricCard key={m.label} m={m} index={i} />)}
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, position: "relative", zIndex: 2 }}>
+              {METRICS.map((m, i) => <MetricCard key={m.key} m={m} index={i} theme={theme} t={t} />)}
             </div>
           </motion.div>
 
-          {/* AI insight card */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.9, duration: 0.6 }}
             style={{
-              background: "rgba(99,102,241,0.08)",
-              border: "1px solid rgba(99,102,241,0.2)",
+              background: isDark ? "rgba(99,102,241,0.05)" : "rgba(99,102,241,0.04)",
+              border: `1px solid ${isDark ? 'rgba(99,102,241,0.15)' : 'rgba(99,102,241,0.1)'}`,
               borderRadius: 16,
               padding: "14px 18px",
               display: "flex", gap: 12, alignItems: "flex-start",
+              position: "relative",
+              overflow: "hidden",
             }}
           >
+            {isDark && (
+              <motion.div
+                animate={{ scale: [1, 1.1, 1], opacity: [0.2, 0.4, 0.2] }}
+                transition={{ duration: 3, repeat: Infinity }}
+                style={{
+                  position: "absolute", top: -20, right: -20,
+                  width: 80, height: 80, borderRadius: "50%",
+                  background: "radial-gradient(circle, rgba(99,102,241,0.08), transparent 70%)",
+                  filter: "blur(40px)",
+                }}
+              />
+            )}
             <div style={{
               width: 36, height: 36, borderRadius: 10,
-              background: "rgba(99,102,241,0.2)", flexShrink: 0,
-              display: "flex", alignItems: "center", justifyContent: "center"
+              background: isDark ? "rgba(99,102,241,0.15)" : "rgba(99,102,241,0.08)",
+              flexShrink: 0,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              border: `1px solid ${isDark ? 'rgba(99,102,241,0.15)' : 'rgba(99,102,241,0.08)'}`,
             }}>
-              <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
-                <path d="M9 2a7 7 0 100 14A7 7 0 009 2zm0 3v4l3 1.5" stroke="#818cf8" strokeWidth="1.5" strokeLinecap="round" />
-              </svg>
+              <Zap size={18} color="#818cf8" />
             </div>
             <div>
-              <div style={{ fontSize: 12, color: "#818cf8", fontWeight: 600, marginBottom: 4 }}>AI-инсайт</div>
-              <div style={{ fontSize: 13, color: "rgba(255,255,255,0.6)", lineHeight: 1.5 }}>
-                Ваши расходы на маркетинг выросли на 34%, но конверсия упала. Рекомендуем пересмотреть каналы.
+              <div style={{ 
+                fontSize: 12, 
+                color: "#818cf8", 
+                fontWeight: 600, 
+                marginBottom: 4,
+                display: "flex",
+                alignItems: "center",
+                gap: 4,
+              }}>
+                <span style={{ width: 3, height: 3, borderRadius: "50%", background: "#818cf8", boxShadow: "0 0 10px #818cf8", display: "block" }} />
+                {t("hero.aiInsight")}
+              </div>
+              <div style={{ 
+                fontSize: 13, 
+                color: isDark ? "rgba(255,255,255,0.5)" : "rgba(0,0,0,0.5)", 
+                lineHeight: 1.5 
+              }}>
+                {t("hero.aiMessage")}
               </div>
             </div>
           </motion.div>
