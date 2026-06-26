@@ -14,7 +14,7 @@ import {
   Building2, Users, BarChart3, Wallet, Zap,
   Star
 } from "lucide-react";
-import { DEFAULT_PERMISSIONS } from "../config/permissions";
+import { DEFAULT_PERMISSIONS } from "../permissions";
 import { useTheme } from "../Context/ThemeContext";
 
 export default function Register() {
