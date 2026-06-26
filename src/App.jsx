@@ -1,6 +1,6 @@
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Layout from "./Components/Layout";
-import LandingPage from "./Pages/LandingPage";
+import LandingPage from "./Components/LandingPage";
 import Dashboard from "./Pages/Dashboard";
 import Cashflow from "./Pages/Cashflow";
 import PL from "./Pages/PL";
